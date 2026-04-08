@@ -6,6 +6,7 @@ from app.models.ping_log import PingLog
 from app.models.audit_log import AuditLog
 from app.models.microwave_link import MicrowaveLink
 from app.models.microwave_link_budget import MicrowaveLinkBudget
+from app.models.client_page import ClientPage
 
 __all__ = [
     "User",
@@ -16,4 +17,5 @@ __all__ = [
     "AuditLog",
     "MicrowaveLink",
     "MicrowaveLinkBudget",
+    "ClientPage",
 ]

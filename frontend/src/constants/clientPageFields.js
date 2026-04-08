@@ -1,0 +1,96 @@
+export const clientPageFields = [
+  { key: "vendor", label: "Vendor" },
+  { key: "site_name_s1", label: "Site name S1" },
+  { key: "site_name_s2", label: "Site name S2" },
+  { key: "state_province", label: "State/ Province" },
+  { key: "township", label: "Township" },
+  { key: "zone", label: "Zone" },
+  { key: "region", label: "Region" },
+  { key: "ring_id_span_name", label: "Ring ID/Span Name" },
+  { key: "media_type", label: "Media Type (Fiber/ Microwave)" },
+  { key: "link_id", label: "Link ID" },
+  { key: "revise", label: "Revise" },
+
+  { key: "site_name_s1_ip", label: "Site name S1 IP" },
+  { key: "site_name_s2_ip", label: "Site name S2 IP" },
+  { key: "site_name_s1_port", label: "Site name S1 Port" },
+  { key: "site_name_s2_port", label: "Site name S2 Port" },
+
+  { key: "link_class", label: "Class" },
+  { key: "model", label: "Model" },
+  { key: "status", label: "Status" },
+  { key: "active", label: "Active" },
+  { key: "protocol", label: "Protocol" },
+  { key: "comment", label: "Comment" },
+  { key: "status_1", label: "Status.1" },
+  { key: "type", label: "Type" },
+  { key: "bandwidth", label: "Bandwidth" },
+  { key: "planning_capacity", label: "Planning Capacity" },
+
+  { key: "latitude_s1", label: "Latitude S1" },
+  { key: "latitude_s2", label: "Latitude S2" },
+  { key: "longitude_s1", label: "Longitude S1" },
+  { key: "longitude_s2", label: "Longitude S2" },
+  { key: "true_azimuth_s1", label: "True azimuth (°) S1" },
+  { key: "true_azimuth_s2", label: "True azimuth (°) S2" },
+  { key: "tower_height_s1", label: "Tower height (m) S1" },
+  { key: "tower_height_s2", label: "Tower height (m) S2" },
+
+  { key: "tr_antenna_model_s1", label: "TR Antenna model S1" },
+  { key: "tr_antenna_model_s2", label: "TR Antenna model S2" },
+  { key: "tr_antenna_diameter_s1", label: "TR Antenna diameter (m) S1" },
+  { key: "tr_antenna_diameter_s2", label: "TR Antenna diameter (m) S2" },
+  { key: "tr_antenna_height_s1", label: "TR Antenna height (m) S1" },
+  { key: "tr_antenna_height_s2", label: "TR Antenna height (m) S2" },
+
+  { key: "frequency_mhz", label: "Frequency (MHz)" },
+  { key: "polarization", label: "Polarization" },
+  { key: "path_length_km", label: "Path length (km)" },
+
+  { key: "radio_model_s1", label: "Radio model S1" },
+  { key: "radio_model_s2", label: "Radio model S2" },
+
+  { key: "design_frequency_1_s1", label: "#1 Design frequency S1" },
+  { key: "design_frequency_1_s2", label: "#1 Design frequency S2" },
+  { key: "design_frequency_2_s1", label: "#2 Design frequency S1" },
+  { key: "design_frequency_2_s2", label: "#2 Design frequency S2" },
+  { key: "design_frequency_3_s1", label: "#3 Design frequency S1" },
+  { key: "design_frequency_3_s2", label: "#3 Design frequency S2" },
+  { key: "design_frequency_4_s1", label: "#4 Design frequency S1" },
+  { key: "design_frequency_4_s2", label: "#4 Design frequency S2" },
+
+  { key: "tx_power_dbm_s1", label: "TX power (dBm) S1" },
+  { key: "tx_power_dbm_s2", label: "TX power (dBm) S2" },
+  { key: "rx_threshold_level_dbm_s1", label: "RX threshold level (dBm) S1" },
+  { key: "rx_threshold_level_dbm_s2", label: "RX threshold level (dBm) S2" },
+
+  { key: "radio_file_name_s1", label: "Radio file name S1" },
+  { key: "radio_file_name_s2", label: "Radio file name S2" },
+
+  { key: "receive_signal_dbm_s1", label: "Receive signal (dBm) S1" },
+  { key: "receive_signal_dbm_s2", label: "Receive signal (dBm) S2" },
+  { key: "thermal_fade_margin_db_s1", label: "Thermal fade margin (dB) S1" },
+  { key: "thermal_fade_margin_db_s2", label: "Thermal fade margin (dB) S2" },
+  { key: "effective_fade_margin_db_s1", label: "Effective fade margin (dB) S1" },
+  { key: "effective_fade_margin_db_s2", label: "Effective fade margin (dB) S2" },
+
+  {
+    key: "annual_multipath_availability_s1",
+    label: "Annual multipath availability (%) S1",
+  },
+  {
+    key: "annual_multipath_availability_s2",
+    label: "Annual multipath availability (%) S2",
+  },
+  {
+    key: "annual_rain_availability_s1",
+    label: "Annual rain availability (%) S1",
+  },
+  {
+    key: "annual_rain_availability_s2",
+    label: "Annual rain availability (%) S2",
+  },
+
+  { key: "atpc_1_s1", label: "#1 ATPC S1" },
+  { key: "atpc_1_s2", label: "#1 ATPC S2" },
+];

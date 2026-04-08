@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import Base, engine
 from app.db import base  # noqa: F401
-from app.routers import auth, sites, tools, microwave_links, microwave_link_imports, microwave_link_budgets
+from app.routers import auth, sites, tools, microwave_links, microwave_link_imports, microwave_link_budgets, client_pages
 
 app = FastAPI(title="Network Ops Dashboard API")
 
@@ -23,6 +23,7 @@ app.include_router(tools.router)
 app.include_router(microwave_links.router)
 app.include_router(microwave_link_imports.router)
 app.include_router(microwave_link_budgets.router)
+app.include_router(client_pages.router)
 
 
 @app.get("/")

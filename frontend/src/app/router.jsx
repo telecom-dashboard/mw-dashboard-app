@@ -24,6 +24,8 @@ import AdminAuditLogsPage from "../pages/admin/AdminAuditLogsPage";
 import SiteSearchPage from "../pages/client/SiteSearchPage";
 import SiteDetailPage from "../pages/client/SiteDetailPage";
 import ClientLinkStatusPage from "../pages/client/ClientLinkStatusPage";
+import AdminClientPageBuilder from "../pages/admin/AdminClientPageBuilder";
+import ClientDynamicPage from "../pages/client/ClientDynamicPage";
 
 const router = createBrowserRouter([
   {
@@ -51,6 +53,8 @@ const router = createBrowserRouter([
 
       // new isolated page for the microwave_link_budgets table
       { path: "microwave-link-budgets", element: <AdminMicrowaveLinkBudgetPage /> },
+
+      { path: "client-pages", element: <AdminClientPageBuilder /> },
 
       { path: "link-status", element: <AdminLinkStatusPage /> },
       { path: "ping", element: <AdminPingPage /> },
@@ -91,6 +95,14 @@ const router = createBrowserRouter([
   {
     path: "*",
     element: <LoginPage />,
+  },
+  {
+  path: "/client/pages/:slug",
+  element: (
+    <ProtectedRoute allowedRoles={["admin", "client"]}>
+      <ClientDynamicPage />
+    </ProtectedRoute>
+  ),
   },
 ]);
 
