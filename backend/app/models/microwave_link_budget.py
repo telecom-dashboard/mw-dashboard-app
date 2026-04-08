@@ -13,6 +13,7 @@ class MicrowaveLinkBudget(Base):
     state_province = Column(String, nullable=True)
     township = Column(String, nullable=True)
     zone = Column(String, nullable=True)
+    region = Column(String, nullable=True)
     ring_id_span_name = Column(String, nullable=True)
     media_type = Column(String, nullable=True)
     link_id = Column(String, nullable=True, index=True)

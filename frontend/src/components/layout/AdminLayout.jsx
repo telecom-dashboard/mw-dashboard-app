@@ -66,8 +66,8 @@ function AdminLayout() {
     !isSidebarOpen || isMobile
       ? "lg:ml-0"
       : isSidebarCollapsed
-      ? "lg:ml-[84px]"
-      : "lg:ml-[260px]";
+      ? "lg:ml-[68px]"
+      : "lg:ml-[220px]";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-cyan-50 text-slate-800">
@@ -82,12 +82,12 @@ function AdminLayout() {
         <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/90 backdrop-blur-md">
           <TopLoadingBar />
 
-          <div className="flex h-12 items-center justify-between px-3 sm:px-5">
+          <div className="flex h-12 items-center justify-between px-3 sm:px-4">
             <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={handleMenuClick}
                 title="Toggle sidebar"
-                className="inline-flex h-8 w-8 items-center justify-center border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
               >
                 <Menu size={16} />
               </button>
@@ -96,7 +96,7 @@ function AdminLayout() {
                 <button
                   onClick={toggleSidebarCollapse}
                   title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                  className="inline-flex h-8 w-8 items-center justify-center border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-50"
                 >
                   {isSidebarCollapsed ? (
                     <PanelLeftOpen size={16} />
@@ -110,7 +110,7 @@ function AdminLayout() {
                 onClick={goAdminHome}
                 className="flex items-center gap-2 px-1 py-1 transition hover:text-sky-700"
               >
-                <div className="flex h-8 w-8 items-center justify-center bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-sm">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-sm">
                   <LayoutDashboard size={15} />
                 </div>
 
@@ -137,7 +137,7 @@ function AdminLayout() {
 
               <button
                 onClick={handleLogout}
-                className="inline-flex h-8 items-center gap-1.5 border border-sky-200 bg-white px-2.5 text-xs font-medium text-sky-700 transition hover:bg-sky-50"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-sky-200 bg-white px-2.5 text-xs font-medium text-sky-700 transition hover:bg-sky-50"
               >
                 <LogOut size={14} />
                 <span className="hidden sm:inline">Logout</span>
@@ -146,8 +146,8 @@ function AdminLayout() {
           </div>
         </header>
 
-        <main className="p-4 sm:p-6 lg:p-8">
-          <div className="min-h-[calc(100vh-80px)] border border-sky-100 bg-white/90 p-4 shadow-sm sm:p-6">
+        <main className="p-3 sm:p-4 lg:p-5">
+          <div className="min-h-[calc(100vh-72px)]  border border-sky-100 bg-white/90 p-3 shadow-sm sm:p-4 lg:p-5">
             <Outlet />
           </div>
         </main>

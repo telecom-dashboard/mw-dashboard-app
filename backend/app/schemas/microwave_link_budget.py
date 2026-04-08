@@ -9,6 +9,7 @@ class MicrowaveLinkBudgetBase(BaseModel):
     state_province: Optional[str] = None
     township: Optional[str] = None
     zone: Optional[str] = None
+    region: Optional[str] = None
     ring_id_span_name: Optional[str] = None
     media_type: Optional[str] = None
     link_id: Optional[str] = None

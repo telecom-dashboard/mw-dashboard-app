@@ -33,7 +33,7 @@ const menuItems = [
 ];
 
 function AdminSidebar({ isOpen, isCollapsed, isMobile, onClose }) {
-  const sidebarWidth = isCollapsed ? "w-[84px]" : "w-[260px]";
+  const sidebarWidth = isCollapsed ? "w-[68px]" : "w-[220px]";
 
   return (
     <>
@@ -46,20 +46,20 @@ function AdminSidebar({ isOpen, isCollapsed, isMobile, onClose }) {
 
       <aside
         className={[
-          "fixed left-0 top-0 z-50 h-screen border-r border-sky-200 bg-gradient-to-b from-sky-50 via-white to-cyan-50 text-slate-700 shadow-[0_10px_40px_rgba(14,165,233,0.12)] transition-all duration-300",
+          "fixed left-0 top-0 z-50 h-screen border-r border-sky-200 bg-gradient-to-b from-sky-50 via-white to-cyan-50 text-slate-700 shadow-[0_8px_30px_rgba(14,165,233,0.10)] transition-all duration-300",
           sidebarWidth,
           isOpen ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
         <div className="flex h-full flex-col">
-          <div className="border-b border-sky-100 px-4 py-4">
+          <div className="border-b border-sky-100 px-3 py-3">
             <div className="flex items-center justify-between">
               {!isCollapsed && (
                 <div className="min-w-0">
-                  <h2 className="truncate text-lg font-bold tracking-tight text-sky-900">
+                  <h2 className="truncate text-base font-bold tracking-tight text-sky-900">
                     Telecom Admin
                   </h2>
-                  <p className="mt-0.5 text-xs text-sky-600">
+                  <p className="mt-0.5 text-[10px] text-sky-600">
                     Management Panel
                   </p>
                 </div>
@@ -68,16 +68,16 @@ function AdminSidebar({ isOpen, isCollapsed, isMobile, onClose }) {
               {isMobile && (
                 <button
                   onClick={onClose}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-sky-200 bg-white text-sky-700 shadow-sm transition hover:bg-sky-50"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-sky-200 bg-white text-sky-700 shadow-sm transition hover:bg-sky-50"
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               )}
             </div>
           </div>
 
-          <div className="sidebar-scroll flex-1 overflow-y-auto px-3 py-4">
-            <div className="space-y-1.5">
+          <div className="sidebar-scroll flex-1 overflow-y-auto px-2 py-3">
+            <div className="space-y-1">
               {menuItems.map((item) => {
                 const Icon = item.icon;
 
@@ -92,16 +92,16 @@ function AdminSidebar({ isOpen, isCollapsed, isMobile, onClose }) {
                     }}
                     className={({ isActive }) =>
                       [
-                        "group flex items-center rounded-2xl px-3 py-3 text-sm font-medium transition-all duration-200",
-                        isCollapsed ? "justify-center" : "gap-3",
+                        "group flex items-center rounded-xl px-2.5 py-2 text-xs font-medium transition-all duration-200",
+                        isCollapsed ? "justify-center" : "gap-2.5",
                         isActive
-                          ? "bg-gradient-to-r from-sky-500 to-cyan-400 text-white shadow-lg shadow-sky-200"
+                          ? "bg-gradient-to-r from-sky-500 to-cyan-400 text-white shadow-md shadow-sky-200"
                           : "text-slate-600 hover:bg-sky-100/70 hover:text-sky-800",
                       ].join(" ")
                     }
                   >
                     <Icon
-                      size={18}
+                      size={16}
                       className="shrink-0 transition-transform duration-200 group-hover:scale-105"
                     />
                     {!isCollapsed && <span className="truncate">{item.label}</span>}

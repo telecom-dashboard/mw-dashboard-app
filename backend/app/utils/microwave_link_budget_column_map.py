@@ -5,6 +5,7 @@ MICROWAVE_LINK_BUDGET_COLUMN_MAP = {
     "State/ Provience": "state_province",
     "Township": "township",
     "Zone": "zone",
+    "Region": "region",
     "Ring ID/Span Name": "ring_id_span_name",
     "Media Type (Fiber/ Microwave)": "media_type",
     "LinkID": "link_id",

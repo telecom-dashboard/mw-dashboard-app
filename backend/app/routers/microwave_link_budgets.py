@@ -43,6 +43,7 @@ SEARCHABLE_FIELDS = [
     "model",
     "protocol",
     "media_type",
+    "region",
 ]
 
 FLOAT_FIELDS = {
@@ -179,17 +180,37 @@ def serialize_row_for_debug(data: dict):
     return debug_data
 
 
-@router.get("/")
-def get_microwave_link_budgets(
-    page: int = 1,
-    page_size: int = 10,
+def build_export_dataframe(items):
+    reverse_map = {v: k for k, v in MICROWAVE_LINK_BUDGET_COLUMN_MAP.items()}
+    export_rows = []
+
+    for item in items:
+        item_data = MicrowaveLinkBudgetRead.model_validate(item).model_dump()
+        row = {}
+
+        for db_key, excel_key in reverse_map.items():
+            value = item_data.get(db_key)
+
+            if db_key == "active":
+                value = "Yes" if value is True else "No" if value is False else ""
+
+            row[excel_key] = value
+
+        export_rows.append(row)
+
+    return pd.DataFrame(
+        export_rows, columns=list(MICROWAVE_LINK_BUDGET_COLUMN_MAP.keys())
+    )
+
+
+def build_filtered_query(
+    db: Session,
     search: str | None = None,
     status: str | None = None,
     vendor: str | None = None,
     active: bool | None = None,
     sort_by: str = "link_id",
     sort_order: str = "asc",
-    db: Session = Depends(get_db),
 ):
     query = db.query(MicrowaveLinkBudget)
 
@@ -211,13 +232,34 @@ def get_microwave_link_budgets(
         query = query.filter(MicrowaveLinkBudget.active == active)
 
     sort_column = getattr(MicrowaveLinkBudget, sort_by, MicrowaveLinkBudget.link_id)
-    query = query.order_by(desc(sort_column) if sort_order == "desc" else asc(sort_column))
+    query = query.order_by(
+        desc(sort_column) if sort_order == "desc" else asc(sort_column)
+    )
+    return query
+
+
+@router.get("/")
+def get_microwave_link_budgets(
+    page: int = 1,
+    page_size: int = 10,
+    search: str | None = None,
+    status: str | None = None,
+    vendor: str | None = None,
+    active: bool | None = None,
+    sort_by: str = "link_id",
+    sort_order: str = "asc",
+    db: Session = Depends(get_db),
+):
+    query = build_filtered_query(db, search, status, vendor, active, sort_by, sort_order)
 
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
 
     return {
-        "items": [MicrowaveLinkBudgetRead.model_validate(item).model_dump() for item in items],
+        "items": [
+            MicrowaveLinkBudgetRead.model_validate(item).model_dump()
+            for item in items
+        ],
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -279,7 +321,11 @@ def update_microwave_link_budget(
     payload: MicrowaveLinkBudgetUpdate,
     db: Session = Depends(get_db),
 ):
-    item = db.query(MicrowaveLinkBudget).filter(MicrowaveLinkBudget.id == item_id).first()
+    item = (
+        db.query(MicrowaveLinkBudget)
+        .filter(MicrowaveLinkBudget.id == item_id)
+        .first()
+    )
     if not item:
         raise HTTPException(status_code=404, detail="Microwave link budget not found")
 
@@ -291,15 +337,23 @@ def update_microwave_link_budget(
     return item
 
 
-@router.delete("/{item_id}")
-def delete_microwave_link_budget(item_id: int, db: Session = Depends(get_db)):
-    item = db.query(MicrowaveLinkBudget).filter(MicrowaveLinkBudget.id == item_id).first()
-    if not item:
-        raise HTTPException(status_code=404, detail="Microwave link budget not found")
+@router.delete("/delete-all")
+def delete_all_microwave_link_budgets(db: Session = Depends(get_db)):
+    deleted_count = db.query(MicrowaveLinkBudget).count()
 
-    db.delete(item)
+    if deleted_count == 0:
+        return {
+            "message": "No microwave link budgets to delete",
+            "deleted_count": 0,
+        }
+
+    db.query(MicrowaveLinkBudget).delete()
     db.commit()
-    return {"message": "Microwave link budget deleted successfully"}
+
+    return {
+        "message": "All microwave link budgets deleted successfully",
+        "deleted_count": deleted_count,
+    }
 
 
 @router.delete("/")
@@ -324,6 +378,21 @@ def bulk_delete_microwave_link_budgets(
     }
 
 
+@router.delete("/{item_id}")
+def delete_microwave_link_budget(item_id: int, db: Session = Depends(get_db)):
+    item = (
+        db.query(MicrowaveLinkBudget)
+        .filter(MicrowaveLinkBudget.id == item_id)
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Microwave link budget not found")
+
+    db.delete(item)
+    db.commit()
+    return {"message": "Microwave link budget deleted successfully"}
+
+
 @router.get("/export/excel")
 def export_microwave_link_budgets_excel(
     search: str | None = None,
@@ -334,48 +403,10 @@ def export_microwave_link_budgets_excel(
     sort_order: str = "asc",
     db: Session = Depends(get_db),
 ):
-    query = db.query(MicrowaveLinkBudget)
-
-    if search:
-        keyword = f"%{search.strip()}%"
-        conditions = [
-            getattr(MicrowaveLinkBudget, field).ilike(keyword)
-            for field in SEARCHABLE_FIELDS
-        ]
-        query = query.filter(or_(*conditions))
-
-    if status:
-        query = query.filter(MicrowaveLinkBudget.status == status)
-
-    if vendor:
-        query = query.filter(MicrowaveLinkBudget.vendor == vendor)
-
-    if active is not None:
-        query = query.filter(MicrowaveLinkBudget.active == active)
-
-    sort_column = getattr(MicrowaveLinkBudget, sort_by, MicrowaveLinkBudget.link_id)
-    query = query.order_by(desc(sort_column) if sort_order == "desc" else asc(sort_column))
-
+    query = build_filtered_query(db, search, status, vendor, active, sort_by, sort_order)
     items = query.all()
 
-    reverse_map = {v: k for k, v in MICROWAVE_LINK_BUDGET_COLUMN_MAP.items()}
-    export_rows = []
-
-    for item in items:
-        item_data = MicrowaveLinkBudgetRead.model_validate(item).model_dump()
-        row = {}
-
-        for db_key, excel_key in reverse_map.items():
-            value = item_data.get(db_key)
-
-            if db_key == "active":
-                value = "Yes" if value is True else "No" if value is False else ""
-
-            row[excel_key] = value
-
-        export_rows.append(row)
-
-    df = pd.DataFrame(export_rows, columns=list(MICROWAVE_LINK_BUDGET_COLUMN_MAP.keys()))
+    df = build_export_dataframe(items)
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -388,6 +419,40 @@ def export_microwave_link_budgets_excel(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": "attachment; filename=microwave_link_budgets.xlsx"
+        },
+    )
+
+
+@router.get("/export/excel-selected")
+def export_selected_microwave_link_budgets_excel(
+    ids: list[int] = Query(...),
+    db: Session = Depends(get_db),
+):
+    items = (
+        db.query(MicrowaveLinkBudget)
+        .filter(MicrowaveLinkBudget.id.in_(ids))
+        .order_by(asc(MicrowaveLinkBudget.link_id))
+        .all()
+    )
+
+    if not items:
+        raise HTTPException(
+            status_code=404, detail="No selected microwave link budgets found"
+        )
+
+    df = build_export_dataframe(items)
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Selected Budgets")
+
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": "attachment; filename=microwave_link_budgets_selected.xlsx"
         },
     )
 
@@ -425,7 +490,9 @@ async def import_microwave_link_budgets_excel(
         df = pd.read_excel(io.BytesIO(content))
         df.columns = [str(col).strip() for col in df.columns]
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to read Excel file: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Failed to read Excel file: {str(e)}"
+        )
 
     missing_columns = [
         col for col in MICROWAVE_LINK_BUDGET_COLUMN_MAP.keys() if col not in df.columns

@@ -7,6 +7,7 @@ const emptyForm = {
   state_province: "",
   township: "",
   zone: "",
+  region: "",
   ring_id_span_name: "",
   media_type: "",
   link_id: "",
@@ -201,6 +202,10 @@ function AdminMicrowaveLinkBudgetForm({
 
         <FormField label="Zone">
           <input name="zone" value={form.zone} onChange={handleChange} className={inputClass} />
+        </FormField>
+
+        <FormField label="Region">
+          <input name="region" value={form.region} onChange={handleChange} className={inputClass} />
         </FormField>
 
         <FormField label="Ring ID / Span Name">

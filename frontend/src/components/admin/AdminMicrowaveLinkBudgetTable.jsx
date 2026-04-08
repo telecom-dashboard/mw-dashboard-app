@@ -8,7 +8,8 @@ function AdminMicrowaveLinkBudgetTable({
   sortConfig,
   onSort,
 }) {
-  const allSelected = rows.length > 0 && rows.every((row) => selectedIds.includes(row.id));
+  const allSelected =
+    rows.length > 0 && rows.every((row) => selectedIds.includes(row.id));
 
   const sortIndicator = (key) => {
     if (sortConfig?.key !== key) return "↕";
@@ -43,7 +44,9 @@ function AdminMicrowaveLinkBudgetTable({
           : "border-slate-200 bg-slate-50 text-slate-700";
 
       return (
-        <span className={`inline-flex rounded-md border px-2.5 py-1 text-xs font-semibold ${statusClass}`}>
+        <span
+          className={`inline-flex rounded-md border px-2.5 py-1 text-xs font-semibold ${statusClass}`}
+        >
           {value || "-"}
         </span>
       );
@@ -88,7 +91,7 @@ function AdminMicrowaveLinkBudgetTable({
     <table className="w-full min-w-max border-collapse bg-white">
       <thead>
         <tr>
-          <th className={thClass}>
+          <th className={thClass} onClick={(e) => e.stopPropagation()}>
             <input
               type="checkbox"
               checked={allSelected}
@@ -110,7 +113,10 @@ function AdminMicrowaveLinkBudgetTable({
       <tbody>
         {rows.length === 0 ? (
           <tr>
-            <td colSpan={microwaveLinkBudgetColumns.length + 1} className="px-6 py-12 text-center">
+            <td
+              colSpan={microwaveLinkBudgetColumns.length + 1}
+              className="px-6 py-12 text-center"
+            >
               <div className="text-4xl">📡</div>
               <h3 className="mt-3 text-lg font-semibold text-slate-900">
                 No microwave link budget records found
@@ -127,20 +133,27 @@ function AdminMicrowaveLinkBudgetTable({
             return (
               <tr
                 key={row.id}
-                className={`transition ${
+                onClick={() => onToggleSelectRow(row.id)}
+                className={`cursor-pointer transition ${
                   selected
-                    ? "bg-sky-50"
+                    ? "bg-sky-50 ring-1 ring-inset ring-sky-200"
                     : index % 2 === 0
                     ? "bg-white"
                     : "bg-slate-50/50"
                 } hover:bg-sky-50`}
               >
-                <td className={tdClass}>
+                <td
+                  className={tdClass}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleSelectRow(row.id);
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={selected}
-                    onChange={() => onToggleSelectRow(row.id)}
-                    className="h-4 w-4 rounded border-slate-300"
+                    onChange={() => {}}
+                    className="pointer-events-none h-4 w-4 rounded border-slate-300"
                   />
                 </td>
 

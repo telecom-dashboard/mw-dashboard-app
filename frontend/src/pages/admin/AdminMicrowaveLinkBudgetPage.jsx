@@ -16,9 +16,11 @@ import {
 import {
   bulkDeleteMicrowaveLinkBudgets,
   createMicrowaveLinkBudget,
+  deleteAllMicrowaveLinkBudgets,
   deleteMicrowaveLinkBudget,
   downloadMicrowaveLinkBudgetTemplateExcel,
   exportMicrowaveLinkBudgetsExcel,
+  exportSelectedMicrowaveLinkBudgetsExcel,
   getMicrowaveLinkBudgetSummary,
   getMicrowaveLinkBudgets,
   importMicrowaveLinkBudgetsExcel,
@@ -282,12 +284,31 @@ function AdminMicrowaveLinkBudgetPage() {
     addMessageLog(`Delete requested for ${selectedIds.length} selected record(s)`, "info");
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget?.ids?.length) return;
+  const handleDeleteAll = () => {
+    setDeleteTarget({ ids: [], deleteAll: true });
+    addMessageLog("Delete all requested", "info");
+  };
 
+  const handleConfirmDelete = async () => {
     try {
       setSaving(true);
       setError("");
+
+      if (deleteTarget?.deleteAll) {
+        await deleteAllMicrowaveLinkBudgets();
+        await refreshAll({ pageValue: 1 });
+        setPage(1);
+        setViewingRow(null);
+        setEditingRow(null);
+        setSelectedIds([]);
+        setDeleteTarget(null);
+
+        showToast("All microwave link budget records deleted successfully");
+        addMessageLog("All microwave link budget records deleted successfully", "success");
+        return;
+      }
+
+      if (!deleteTarget?.ids?.length) return;
 
       if (deleteTarget.ids.length === 1) {
         await deleteMicrowaveLinkBudget(deleteTarget.ids[0]);
@@ -313,9 +334,14 @@ function AdminMicrowaveLinkBudgetPage() {
       setDeleteTarget(null);
       setSelectedIds([]);
     } catch (err) {
+      const detail = err?.response?.data?.detail;
       const message =
-        err?.response?.data?.detail ||
-        "Failed to delete microwave link budget records";
+        typeof detail === "string"
+          ? detail
+          : err?.response?.data?.message ||
+            err?.message ||
+            "Failed to delete microwave link budget records";
+
       setError(message);
       showToast(message, "error");
       addMessageLog(message, "error");
@@ -405,7 +431,7 @@ function AdminMicrowaveLinkBudgetPage() {
     }
   };
 
-  const handleExportExcel = async () => {
+  const handleExportAllExcel = async () => {
     try {
       const blob = await exportMicrowaveLinkBudgetsExcel(
         buildQueryParams(1, pageSize, search, statusFilter, vendorFilter, sortConfig)
@@ -420,11 +446,34 @@ function AdminMicrowaveLinkBudgetPage() {
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      showToast("Excel exported successfully");
-      addMessageLog("Excel exported successfully", "success");
+      showToast("All data exported successfully");
+      addMessageLog("All data exported successfully", "success");
     } catch (err) {
-      showToast("Failed to export Excel", "error");
-      addMessageLog("Failed to export Excel", "error");
+      showToast("Failed to export all data", "error");
+      addMessageLog("Failed to export all data", "error");
+    }
+  };
+
+  const handleExportSelectedExcel = async () => {
+    if (selectedIds.length === 0) return;
+
+    try {
+      const blob = await exportSelectedMicrowaveLinkBudgetsExcel(selectedIds);
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "microwave_link_budgets_selected.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showToast("Selected data exported successfully");
+      addMessageLog("Selected data exported successfully", "success");
+    } catch (err) {
+      showToast("Failed to export selected data", "error");
+      addMessageLog("Failed to export selected data", "error");
     }
   };
 
@@ -447,8 +496,8 @@ function AdminMicrowaveLinkBudgetPage() {
       addMessageLog(message, errorCount > 0 ? "error" : "success");
     } catch (err) {
       const message = err?.response?.data?.detail || "Failed to import Excel";
-      showToast(message, "error");
-      addMessageLog(message, "error");
+      showToast(typeof message === "string" ? message : "Failed to import Excel", "error");
+      addMessageLog(typeof message === "string" ? message : "Failed to import Excel", "error");
     } finally {
       setSaving(false);
       e.target.value = "";
@@ -497,8 +546,8 @@ function AdminMicrowaveLinkBudgetPage() {
   const isModalOpen = showCreateForm || Boolean(editingRow);
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 p-2 md:p-3">
-      <div className="space-y-3">
+    <div className="min-h-[calc(100vh-1rem)] w-full max-w-full overflow-hidden bg-slate-50 p-2 md:p-3">
+      <div className="mx-auto w-full max-w-full space-y-3">
         <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
           <div className="mb-2 flex flex-col gap-0.5">
             <h1 className="text-lg font-bold tracking-tight text-slate-900">
@@ -541,7 +590,7 @@ function AdminMicrowaveLinkBudgetPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="w-full max-w-full rounded-lg border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 px-3 py-2.5">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-1 flex-wrap items-center gap-2">
@@ -567,40 +616,6 @@ function AdminMicrowaveLinkBudgetPage() {
                     Search
                   </button>
                 </form>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500">Vendor</span>
-                  <select
-                    value={vendorFilter}
-                    onChange={handleVendorChange}
-                    className={`${inputClass} min-w-[150px]`}
-                  >
-                    {vendorOptions.map((vendor) => (
-                      <option key={vendor} value={vendor}>
-                        {vendor}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {statusOptions.map((item) => {
-                    const active = statusFilter === item;
-                    return (
-                      <button
-                        key={item}
-                        onClick={() => handleStatusChange(item)}
-                        className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                          active
-                            ? "border border-sky-600 bg-sky-600 text-white"
-                            : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        {item}
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-start gap-2 xl:justify-end">
@@ -615,11 +630,21 @@ function AdminMicrowaveLinkBudgetPage() {
 
                 <button
                   type="button"
-                  onClick={handleExportExcel}
+                  onClick={handleExportAllExcel}
                   className={`${smallBtnClass} border-slate-300 bg-white text-slate-700 hover:bg-slate-50`}
                 >
                   <Download size={12} />
-                  Export
+                  Export All
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportSelectedExcel}
+                  disabled={selectedIds.length === 0}
+                  className={`${smallBtnClass} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  <Download size={12} />
+                  Export Selected
                 </button>
 
                 <button
@@ -630,6 +655,8 @@ function AdminMicrowaveLinkBudgetPage() {
                   <Upload size={12} />
                   Import
                 </button>
+
+                
 
                 <button
                   type="button"
@@ -659,6 +686,38 @@ function AdminMicrowaveLinkBudgetPage() {
               <div className="text-xs text-slate-600">
                 Selected: <span className="font-semibold text-slate-900">{selectedIds.length}</span>
               </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {statusOptions.map((item) => {
+                    const active = statusFilter === item;
+                    return (
+                      <button
+                        key={item}
+                        onClick={() => handleStatusChange(item)}
+                        className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                          active
+                            ? "border border-sky-600 bg-sky-600 text-white"
+                            : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {item}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500">Vendor</span>
+                  <select
+                    value={vendorFilter}
+                    onChange={handleVendorChange}
+                    className={`${inputClass} min-w-[30px]`}
+                  >
+                    {vendorOptions.map((vendor) => (
+                      <option key={vendor} value={vendor}>
+                        {vendor}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <button
@@ -689,6 +748,15 @@ function AdminMicrowaveLinkBudgetPage() {
                 >
                   <Trash2 size={12} />
                   Delete
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDeleteAll}
+                  className={`${smallBtnClass} border-red-300 bg-white text-red-600 hover:bg-red-50`}
+                >
+                  <Trash2 size={12} />
+                  Delete All
                 </button>
               </div>
             </div>
@@ -771,7 +839,7 @@ function AdminMicrowaveLinkBudgetPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto bg-white px-2 py-2">
+          <div className="w-full max-w-full overflow-x-auto bg-white px-2 py-2">
             <AdminMicrowaveLinkBudgetTable
               rows={rows}
               selectedIds={selectedIds}
@@ -816,7 +884,9 @@ function AdminMicrowaveLinkBudgetPage() {
                 </button>
 
                 <button
-                  onClick={() => setPage((prev) => Math.min(prev + 1, totalPages || 1))}
+                  onClick={() =>
+                    setPage((prev) => Math.min(prev + 1, totalPages || 1))
+                  }
                   disabled={page >= totalPages}
                   className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -832,7 +902,9 @@ function AdminMicrowaveLinkBudgetPage() {
         <div className="fixed right-3 top-3 z-[70]">
           <div
             className={`rounded-lg px-3 py-2 text-xs font-semibold shadow-lg ${
-              toast.type === "error" ? "bg-red-600 text-white" : "bg-slate-900 text-white"
+              toast.type === "error"
+                ? "bg-red-600 text-white"
+                : "bg-slate-900 text-white"
             }`}
           >
             {toast.message}
@@ -894,17 +966,21 @@ function AdminMicrowaveLinkBudgetPage() {
             <div className="border-b border-slate-200 px-4 py-3">
               <h3 className="text-base font-bold text-slate-900">Confirm Delete</h3>
               <p className="mt-1 text-xs text-slate-500">
-                Are you sure you want to delete the selected record(s)?
+                {deleteTarget?.deleteAll
+                  ? "Are you sure you want to delete all microwave link budget records?"
+                  : "Are you sure you want to delete the selected record(s)?"}
               </p>
             </div>
 
             <div className="space-y-4 px-4 py-3">
               <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-700">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Selected Rows
+                  {deleteTarget?.deleteAll ? "Action" : "Selected Rows"}
                 </div>
                 <div className="mt-1 font-semibold text-slate-900">
-                  {deleteTarget.ids.length}
+                  {deleteTarget?.deleteAll
+                    ? "Delete all records"
+                    : deleteTarget?.ids?.length || 0}
                 </div>
               </div>
             </div>

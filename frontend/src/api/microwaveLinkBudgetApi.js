@@ -25,6 +25,11 @@ export const deleteMicrowaveLinkBudget = async (id) => {
   return response.data;
 };
 
+export const deleteAllMicrowaveLinkBudgets = async () => {
+  const response = await api.delete("/microwave-link-budgets/delete-all");
+  return response.data;
+};
+
 export const bulkDeleteMicrowaveLinkBudgets = async (ids) => {
   const response = await api.delete("/microwave-link-budgets", {
     params: { ids },
@@ -38,6 +43,17 @@ export const bulkDeleteMicrowaveLinkBudgets = async (ids) => {
 export const exportMicrowaveLinkBudgetsExcel = async (params = {}) => {
   const response = await api.get("/microwave-link-budgets/export/excel", {
     params,
+    responseType: "blob",
+  });
+  return response.data;
+};
+
+export const exportSelectedMicrowaveLinkBudgetsExcel = async (ids) => {
+  const response = await api.get("/microwave-link-budgets/export/excel-selected", {
+    params: { ids },
+    paramsSerializer: {
+      indexes: null,
+    },
     responseType: "blob",
   });
   return response.data;
