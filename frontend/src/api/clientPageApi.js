@@ -34,3 +34,8 @@ export const getPublicClientPageDataApi = async (slug, params = {}) => {
   const response = await api.get(`/client-pages/view/${slug}/data`, { params });
   return response.data;
 };
+
+export const getPublishedClientPagesForNavApi = async () => {
+  const response = await api.get("/client-pages/published/nav");
+  return response.data;
+};

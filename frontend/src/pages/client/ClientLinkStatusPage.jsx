@@ -3,7 +3,6 @@ import {
   getMicrowaveLinkStatus,
   getMicrowaveLinkStatusSummary,
 } from "../../api/linkStatusApi";
-import TopNavbar from "../../components/layout/TopNavbar";
 
 function ClientLinkStatusPage() {
   const [rows, setRows] = useState([]);
@@ -63,138 +62,134 @@ function ClientLinkStatusPage() {
   };
 
   return (
-    <>
-      <TopNavbar />
-
-      <div style={pageStyle}>
-        <div style={headerRow}>
-          <div>
-            <h2 style={{ margin: 0 }}>Link Status</h2>
-            <p style={subText}>Real-time microwave link overview</p>
-          </div>
-
-          <form onSubmit={handleSearch} style={searchWrap}>
-            <input
-              placeholder="Search link / NE / IP..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              style={searchInputStyle}
-            />
-            <button style={searchBtn}>Search</button>
-          </form>
+    <div style={pageStyle}>
+      <div style={headerRow}>
+        <div>
+          <h2 style={{ margin: 0 }}>Link Status</h2>
+          <p style={subText}>Real-time microwave link overview</p>
         </div>
 
-        {error && <p style={{ color: "crimson", marginBottom: 16 }}>{error}</p>}
-        {loading && <p style={{ marginBottom: 16 }}>Loading...</p>}
+        <form onSubmit={handleSearch} style={searchWrap}>
+          <input
+            placeholder="Search link / NE / IP..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            style={searchInputStyle}
+          />
+          <button style={searchBtn}>Search</button>
+        </form>
+      </div>
 
-        {summary && (
-          <div style={summaryWrap}>
-            <SmallCard title="Total" value={summary.total_links} />
-            <SmallCard title="Active" value={summary.active_links} />
-            <SmallCard title="Inactive" value={summary.inactive_links} />
-          </div>
-        )}
+      {error && <p style={{ color: "crimson", marginBottom: 16 }}>{error}</p>}
+      {loading && <p style={{ marginBottom: 16 }}>Loading...</p>}
 
-        <div style={tableCard}>
-          <div style={tableScroller}>
-            <table style={tableStyle}>
-              <thead>
+      {summary && (
+        <div style={summaryWrap}>
+          <SmallCard title="Total" value={summary.total_links} />
+          <SmallCard title="Active" value={summary.active_links} />
+          <SmallCard title="Inactive" value={summary.inactive_links} />
+        </div>
+      )}
+
+      <div style={tableCard}>
+        <div style={tableScroller}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thSticky}>Link</th>
+                <th style={thSticky}>NE</th>
+                <th style={thSticky}>FE</th>
+                <th style={thSticky}>Vendor</th>
+                <th style={thSticky}>Model</th>
+                <th style={thSticky}>Type</th>
+                <th style={thSticky}>Status</th>
+                <th style={thSticky}>Active</th>
+                <th style={thSticky}>IP</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {rows.length === 0 ? (
                 <tr>
-                  <th style={thSticky}>Link</th>
-                  <th style={thSticky}>NE</th>
-                  <th style={thSticky}>FE</th>
-                  <th style={thSticky}>Vendor</th>
-                  <th style={thSticky}>Model</th>
-                  <th style={thSticky}>Type</th>
-                  <th style={thSticky}>Status</th>
-                  <th style={thSticky}>Active</th>
-                  <th style={thSticky}>IP</th>
+                  <td colSpan={9} style={emptyTd}>
+                    No link status records found.
+                  </td>
                 </tr>
-              </thead>
-
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} style={emptyTd}>
-                      No link status records found.
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.id} style={tbodyRow}>
+                    <td style={tdBold}>{row.link_id}</td>
+                    <td style={td}>{row.ne_id || "-"}</td>
+                    <td style={td}>{row.fe_id || "-"}</td>
+                    <td style={td}>{row.vendor || "-"}</td>
+                    <td style={td}>{row.model || "-"}</td>
+                    <td style={td}>{row.type || "-"}</td>
+                    <td style={td}>
+                      <span style={statusBadge(row.status)}>
+                        {row.status || "Unknown"}
+                      </span>
                     </td>
+                    <td style={td}>
+                      <span style={activeBadge(row.is_active)}>
+                        {row.is_active ? "Active" : "Down"}
+                      </span>
+                    </td>
+                    <td style={td}>{row.management_ip || "-"}</td>
                   </tr>
-                ) : (
-                  rows.map((row) => (
-                    <tr key={row.id} style={tbodyRow}>
-                      <td style={tdBold}>{row.link_id}</td>
-                      <td style={td}>{row.ne_id || "-"}</td>
-                      <td style={td}>{row.fe_id || "-"}</td>
-                      <td style={td}>{row.vendor || "-"}</td>
-                      <td style={td}>{row.model || "-"}</td>
-                      <td style={td}>{row.type || "-"}</td>
-                      <td style={td}>
-                        <span style={statusBadge(row.status)}>
-                          {row.status || "Unknown"}
-                        </span>
-                      </td>
-                      <td style={td}>
-                        <span style={activeBadge(row.is_active)}>
-                          {row.is_active ? "Active" : "Down"}
-                        </span>
-                      </td>
-                      <td style={td}>{row.management_ip || "-"}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={paginationWrap}>
+          <div>
+            <span style={{ marginRight: 8 }}>Rows per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPage(1);
+                setPageSize(Number(e.target.value));
+              }}
+              style={selectStyle}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
           </div>
 
-          <div style={paginationWrap}>
-            <div>
-              <span style={{ marginRight: 8 }}>Rows per page:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPage(1);
-                  setPageSize(Number(e.target.value));
-                }}
-                style={selectStyle}
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
+          <div style={paginationRight}>
+            <span>
+              {total === 0
+                ? "0"
+                : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)} of ${total}`}
+            </span>
 
-            <div style={paginationRight}>
-              <span>
-                {total === 0
-                  ? "0"
-                  : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)} of ${total}`}
-              </span>
+            <button
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={page <= 1}
+              style={pageBtn}
+            >
+              Previous
+            </button>
 
-              <button
-                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                disabled={page <= 1}
-                style={pageBtn}
-              >
-                Previous
-              </button>
+            <span>
+              Page {page} / {totalPages || 1}
+            </span>
 
-              <span>
-                Page {page} / {totalPages || 1}
-              </span>
-
-              <button
-                onClick={() => setPage((prev) => Math.min(prev + 1, totalPages || 1))}
-                disabled={page >= totalPages}
-                style={pageBtn}
-              >
-                Next
-              </button>
-            </div>
+            <button
+              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages || 1))}
+              disabled={page >= totalPages}
+              style={pageBtn}
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

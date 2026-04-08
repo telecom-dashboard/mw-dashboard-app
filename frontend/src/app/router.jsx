@@ -26,6 +26,9 @@ import SiteDetailPage from "../pages/client/SiteDetailPage";
 import ClientLinkStatusPage from "../pages/client/ClientLinkStatusPage";
 import AdminClientPageBuilder from "../pages/admin/AdminClientPageBuilder";
 import ClientDynamicPage from "../pages/client/ClientDynamicPage";
+import ClientLayout from "../components/layout/ClientLayout";
+
+
 
 const router = createBrowserRouter([
   {
@@ -67,13 +70,19 @@ const router = createBrowserRouter([
     ],
   },
 
-  {
-    path: "/client",
-    element: (
-      <ProtectedRoute allowedRoles={["admin", "client"]}>
-        <SiteSearchPage />
-      </ProtectedRoute>
-    ),
+ {
+  path: "/client",
+  element: (
+    <ProtectedRoute allowedRoles={["admin", "client"]}>
+      <ClientLayout />
+    </ProtectedRoute>
+  ),
+  children: [
+    { index: true, element: <SiteSearchPage /> },
+    { path: "sites/:id", element: <SiteDetailPage /> },
+    { path: "link-status", element: <ClientLinkStatusPage /> },
+    { path: "pages/:slug", element: <ClientDynamicPage /> },
+  ],
   },
   {
     path: "/client/sites/:id",

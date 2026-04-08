@@ -313,3 +313,23 @@ def get_public_client_page_data(
         "page_size": page_size,
         "total_pages": (total + page_size - 1) // page_size,
     }
+
+@router.get("/published/nav")
+def get_published_client_pages_for_nav(db: Session = Depends(get_db)):
+    items = (
+        db.query(ClientPage)
+        .filter(ClientPage.is_published.is_(True))
+        .order_by(ClientPage.title.asc())
+        .all()
+    )
+
+    return [
+        {
+            "id": item.id,
+            "title": item.title,
+            "slug": item.slug,
+            "path": f"/client/pages/{item.slug}",
+        }
+        for item in items
+    ]
+
