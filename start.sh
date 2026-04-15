@@ -4,6 +4,7 @@ set -euo pipefail
 # ── Configuration ──────────────────────────────────────────────
 ENV_FILE="${ENV_FILE:-/opt/app/shared/backend.env}"
 APP_DIR="${APP_DIR:-/opt/app/current/backend}"
+VENV_DIR="${VENV_DIR:-${APP_DIR}/.venv}"
 PARAM_PREFIX="/nw-monitor/mvp/backend"
 LISTEN_HOST="${LISTEN_HOST:-0.0.0.0}"
 LISTEN_PORT="${LISTEN_PORT:-8000}"
@@ -41,7 +42,7 @@ export DB_PASSWORD
 # 3. Start the backend
 echo "[start] Starting backend on ${LISTEN_HOST}:${LISTEN_PORT} ..."
 cd "$APP_DIR"
-exec uvicorn app.main:app \
+exec "${VENV_DIR}/bin/uvicorn" app.main:app \
   --host "$LISTEN_HOST" \
   --port "$LISTEN_PORT" \
   --log-level info

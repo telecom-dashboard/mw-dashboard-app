@@ -15,6 +15,7 @@ FRONTEND_ROOT="/var/www/app"
 APP_ROOT="/opt/app/current"
 BACKEND_DIR="${APP_ROOT}/backend"
 SHARED_ENV="/opt/app/shared/backend.env"
+VENV_DIR="${VENV_DIR:-${BACKEND_DIR}/.venv}"
 
 echo "[deploy] Downloading artifact from s3://${S3_BUCKET}/${S3_KEY} ..."
 aws s3 cp "s3://${S3_BUCKET}/${S3_KEY}" /tmp/deploy.tar.gz
@@ -44,7 +45,9 @@ fi
 
 echo "[deploy] Installing backend dependencies ..."
 cd "${BACKEND_DIR}"
-pip install -r requirements.txt --quiet --upgrade
+python3 -m venv "${VENV_DIR}"
+"${VENV_DIR}/bin/pip" install --quiet --upgrade pip
+"${VENV_DIR}/bin/pip" install --quiet -r requirements.txt
 
 echo "[deploy] Restarting backend service ..."
 systemctl restart saas-app

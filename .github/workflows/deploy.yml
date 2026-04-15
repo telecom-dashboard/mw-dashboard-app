@@ -22,6 +22,7 @@ jobs:
       DEPLOY_PREFIX: ${{ vars.DEPLOY_PREFIX }}
       DEPLOY_INSTANCE_ID: ${{ vars.DEPLOY_INSTANCE_ID }}
       APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+      DEPLOY_VENV_DIR: /opt/app/current/backend/.venv
 
     steps:
       - name: Checkout
@@ -82,7 +83,7 @@ jobs:
           set -euo pipefail
 
           PARAMETERS=$(cat <<EOF
-          {"commands":["#!/bin/bash","set -euo pipefail","aws s3 cp s3://${DEPLOY_BUCKET_NAME}/${SCRIPT_KEY} /tmp/deploy.sh","chmod +x /tmp/deploy.sh","S3_BUCKET='${DEPLOY_BUCKET_NAME}' S3_KEY='${ARTIFACT_KEY}' GITHUB_SHA='${GITHUB_SHA}' bash /tmp/deploy.sh"]}
+          {"commands":["#!/bin/bash","set -euo pipefail","aws s3 cp s3://${DEPLOY_BUCKET_NAME}/${SCRIPT_KEY} /tmp/deploy.sh","chmod +x /tmp/deploy.sh","S3_BUCKET='${DEPLOY_BUCKET_NAME}' S3_KEY='${ARTIFACT_KEY}' GITHUB_SHA='${GITHUB_SHA}' VENV_DIR='${DEPLOY_VENV_DIR}' bash /tmp/deploy.sh"]}
           EOF
           )
 
