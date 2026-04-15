@@ -20,9 +20,12 @@ jobs:
       AWS_APP_MVP_ROLE_ARN: ${{ vars.AWS_APP_MVP_ROLE_ARN || vars.AWS_MVP_APP_DEPLOY_ROLE_ARN }}
       DEPLOY_BUCKET_NAME: ${{ vars.DEPLOY_BUCKET_NAME }}
       DEPLOY_PREFIX: ${{ vars.DEPLOY_PREFIX }}
-      DEPLOY_INSTANCE_ID: ${{ vars.DEPLOY_INSTANCE_ID }}
       APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+      DEPLOY_TARGET_TAG_KEY: DeployTarget
+      DEPLOY_TARGET_TAG_VALUE: ${{ vars.DEPLOY_TARGET_TAG_VALUE }}
       DEPLOY_VENV_DIR: /opt/app/current/backend/.venv
+      TARGET_INSTANCE_ID: ""
+      COMMAND_ID: ""
 
     steps:
       - name: Checkout
@@ -82,6 +85,27 @@ jobs:
         run: |
           set -euo pipefail
 
+          MATCHING_INSTANCE_IDS=$(
+            aws ec2 describe-instances \
+              --filters "Name=tag:${DEPLOY_TARGET_TAG_KEY},Values=${DEPLOY_TARGET_TAG_VALUE}" "Name=instance-state-name,Values=running" \
+              --query "Reservations[].Instances[].InstanceId" \
+              --output text
+          )
+
+          if [ -z "${MATCHING_INSTANCE_IDS}" ] || [ "${MATCHING_INSTANCE_IDS}" = "None" ]; then
+            echo "No running EC2 instances matched ${DEPLOY_TARGET_TAG_KEY}=${DEPLOY_TARGET_TAG_VALUE}." >&2
+            exit 1
+          fi
+
+          read -r -a MATCHED_INSTANCE_ARRAY <<<"${MATCHING_INSTANCE_IDS}"
+
+          if [ "${#MATCHED_INSTANCE_ARRAY[@]}" -ne 1 ]; then
+            echo "Expected exactly one running EC2 instance for ${DEPLOY_TARGET_TAG_KEY}=${DEPLOY_TARGET_TAG_VALUE}, found ${#MATCHED_INSTANCE_ARRAY[@]}: ${MATCHING_INSTANCE_IDS}" >&2
+            exit 1
+          fi
+
+          TARGET_INSTANCE_ID="${MATCHED_INSTANCE_ARRAY[0]}"
+
           PARAMETERS=$(cat <<EOF
           {"commands":["#!/bin/bash","set -euo pipefail","aws s3 cp s3://${DEPLOY_BUCKET_NAME}/${SCRIPT_KEY} /tmp/deploy.sh","chmod +x /tmp/deploy.sh","S3_BUCKET='${DEPLOY_BUCKET_NAME}' S3_KEY='${ARTIFACT_KEY}' GITHUB_SHA='${GITHUB_SHA}' VENV_DIR='${DEPLOY_VENV_DIR}' bash /tmp/deploy.sh"]}
           EOF
@@ -89,7 +113,7 @@ jobs:
 
           COMMAND_ID=$(
             aws ssm send-command \
-              --instance-ids "${DEPLOY_INSTANCE_ID}" \
+              --targets "Key=tag:${DEPLOY_TARGET_TAG_KEY},Values=${DEPLOY_TARGET_TAG_VALUE}" \
               --document-name "AWS-RunShellScript" \
               --comment "Deploy ${GITHUB_SHA} to MVP EC2 host" \
               --parameters "${PARAMETERS}" \
@@ -97,10 +121,12 @@ jobs:
               --output text
           )
 
+          echo "TARGET_INSTANCE_ID=${TARGET_INSTANCE_ID}" >> "$GITHUB_ENV"
           echo "COMMAND_ID=${COMMAND_ID}" >> "$GITHUB_ENV"
           echo "command_id=${COMMAND_ID}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for SSM command
+        if: env.COMMAND_ID != '' && env.TARGET_INSTANCE_ID != ''
         id: ssm_wait
         continue-on-error: true
         shell: bash
@@ -109,23 +135,23 @@ jobs:
 
           aws ssm wait command-executed \
             --command-id "${COMMAND_ID}" \
-            --instance-id "${DEPLOY_INSTANCE_ID}"
+            --instance-id "${TARGET_INSTANCE_ID}"
 
       - name: Fetch SSM result
-        if: always()
+        if: always() && env.COMMAND_ID != '' && env.TARGET_INSTANCE_ID != ''
         shell: bash
         run: |
           set -euo pipefail
 
           aws ssm get-command-invocation \
             --command-id "${COMMAND_ID}" \
-            --instance-id "${DEPLOY_INSTANCE_ID}" \
+            --instance-id "${TARGET_INSTANCE_ID}" \
             --output json > ssm-result.json
 
           cat ssm-result.json
 
       - name: Fail if SSM waiter failed
-        if: steps.ssm_wait.outcome == 'failure'
+        if: env.COMMAND_ID == '' || steps.ssm_wait.outcome == 'failure'
         shell: bash
         run: |
           echo "SSM command did not complete successfully." >&2
@@ -141,6 +167,6 @@ jobs:
             echo "- Domain: \`${APP_DOMAIN}\`"
             echo "- Bucket: \`${DEPLOY_BUCKET_NAME}\`"
             echo "- Artifact key: \`${ARTIFACT_KEY}\`"
-            echo "- EC2 instance: \`${DEPLOY_INSTANCE_ID}\`"
+            echo "- Deploy target tag: \`${DEPLOY_TARGET_TAG_KEY}=${DEPLOY_TARGET_TAG_VALUE}\`"
             echo "- SSM command: \`${COMMAND_ID}\`"
           } >> "$GITHUB_STEP_SUMMARY"
