@@ -11,8 +11,9 @@ S3_KEY="${S3_KEY:?S3_KEY is required}"
 GITHUB_SHA="${GITHUB_SHA:?GITHUB_SHA is required}"
 
 RELEASE_DIR="/opt/app/releases/${GITHUB_SHA}"
-FRONTEND_ROOT="/usr/share/nginx/html"
-BACKEND_DIR="/opt/app/backend"
+FRONTEND_ROOT="/var/www/app"
+APP_ROOT="/opt/app/current"
+BACKEND_DIR="${APP_ROOT}/backend"
 SHARED_ENV="/opt/app/shared/backend.env"
 
 echo "[deploy] Downloading artifact from s3://${S3_BUCKET}/${S3_KEY} ..."
@@ -23,14 +24,16 @@ mkdir -p "${RELEASE_DIR}"
 tar xzf /tmp/deploy.tar.gz -C /opt/app/releases/
 
 echo "[deploy] Deploying frontend to ${FRONTEND_ROOT} ..."
+mkdir -p "${FRONTEND_ROOT}"
 rm -rf "${FRONTEND_ROOT:?}"/*
 cp -r "${RELEASE_DIR}/frontend/"* "${FRONTEND_ROOT}/"
 
-echo "[deploy] Deploying backend to ${BACKEND_DIR} ..."
+echo "[deploy] Deploying app files to ${APP_ROOT} ..."
+mkdir -p "${APP_ROOT}"
 rm -rf "${BACKEND_DIR}"
 cp -r "${RELEASE_DIR}/backend" "${BACKEND_DIR}"
-cp "${RELEASE_DIR}/start.sh" /opt/app/start.sh
-chmod +x /opt/app/start.sh
+cp "${RELEASE_DIR}/start.sh" "${APP_ROOT}/start.sh"
+chmod +x "${APP_ROOT}/start.sh"
 
 echo "[deploy] Ensuring shared env file exists ..."
 mkdir -p /opt/app/shared
@@ -44,7 +47,7 @@ cd "${BACKEND_DIR}"
 pip install -r requirements.txt --quiet --upgrade
 
 echo "[deploy] Restarting backend service ..."
-systemctl restart mw-backend || true
+systemctl restart saas-app
 
 echo "[deploy] Cleaning up ..."
 rm -f /tmp/deploy.tar.gz

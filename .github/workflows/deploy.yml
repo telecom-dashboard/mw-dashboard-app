@@ -17,7 +17,7 @@ jobs:
 
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-      AWS_APP_MVP_ROLE_ARN: ${{ vars.AWS_APP_MVP_ROLE_ARN }}
+      AWS_APP_MVP_ROLE_ARN: ${{ vars.AWS_APP_MVP_ROLE_ARN || vars.AWS_MVP_APP_DEPLOY_ROLE_ARN }}
       DEPLOY_BUCKET_NAME: ${{ vars.DEPLOY_BUCKET_NAME }}
       DEPLOY_PREFIX: ${{ vars.DEPLOY_PREFIX }}
       DEPLOY_INSTANCE_ID: ${{ vars.DEPLOY_INSTANCE_ID }}

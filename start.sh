@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ── Configuration ──────────────────────────────────────────────
 ENV_FILE="${ENV_FILE:-/opt/app/shared/backend.env}"
-APP_DIR="${APP_DIR:-/opt/app/backend}"
+APP_DIR="${APP_DIR:-/opt/app/current/backend}"
 PARAM_PREFIX="/nw-monitor/mvp/backend"
 LISTEN_HOST="${LISTEN_HOST:-0.0.0.0}"
 LISTEN_PORT="${LISTEN_PORT:-8000}"
