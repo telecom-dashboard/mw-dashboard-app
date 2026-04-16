@@ -61,6 +61,8 @@ jobs:
 
           cp -r frontend/dist "bundle/${GITHUB_SHA}/frontend"
           cp -r backend "bundle/${GITHUB_SHA}/backend"
+          mkdir -p "bundle/${GITHUB_SHA}/deploy"
+          cp deploy/init_local_postgres.sh "bundle/${GITHUB_SHA}/deploy/init_local_postgres.sh"
           cp start.sh "bundle/${GITHUB_SHA}/start.sh"
 
           tar -czf "release-${GITHUB_SHA}.tar.gz" -C bundle "${GITHUB_SHA}"

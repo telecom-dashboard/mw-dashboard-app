@@ -16,6 +16,7 @@ APP_ROOT="/opt/app/current"
 BACKEND_DIR="${APP_ROOT}/backend"
 SHARED_ENV="/opt/app/shared/backend.env"
 VENV_DIR="${VENV_DIR:-${BACKEND_DIR}/.venv}"
+DB_INIT_SCRIPT="${APP_ROOT}/init_local_postgres.sh"
 
 echo "[deploy] Downloading artifact from s3://${S3_BUCKET}/${S3_KEY} ..."
 aws s3 cp "s3://${S3_BUCKET}/${S3_KEY}" /tmp/deploy.tar.gz
@@ -33,7 +34,9 @@ echo "[deploy] Deploying app files to ${APP_ROOT} ..."
 mkdir -p "${APP_ROOT}"
 rm -rf "${BACKEND_DIR}"
 cp -r "${RELEASE_DIR}/backend" "${BACKEND_DIR}"
+cp "${RELEASE_DIR}/deploy/init_local_postgres.sh" "${DB_INIT_SCRIPT}"
 cp "${RELEASE_DIR}/start.sh" "${APP_ROOT}/start.sh"
+chmod +x "${DB_INIT_SCRIPT}"
 chmod +x "${APP_ROOT}/start.sh"
 
 echo "[deploy] Ensuring shared env file exists ..."
@@ -48,6 +51,33 @@ cd "${BACKEND_DIR}"
 python3 -m venv "${VENV_DIR}"
 "${VENV_DIR}/bin/pip" install --quiet --upgrade pip
 "${VENV_DIR}/bin/pip" install --quiet -r requirements.txt
+
+echo "[deploy] Bootstrapping local PostgreSQL ..."
+"${DB_INIT_SCRIPT}"
+
+echo "[deploy] Restarting backend service to create tables ..."
+systemctl restart saas-app
+
+echo "[deploy] Seeding initial data ..."
+if [ -f "${SHARED_ENV}" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${SHARED_ENV}"
+  set +a
+fi
+for attempt in 1 2 3 4 5; do
+  if APP_ENV=production "${VENV_DIR}/bin/python" -m app.scripts.seed_initial_data; then
+    break
+  fi
+
+  if [ "${attempt}" -eq 5 ]; then
+    echo "[deploy] Seeding failed after ${attempt} attempts." >&2
+    exit 1
+  fi
+
+  echo "[deploy] Seed attempt ${attempt} failed. Waiting for backend startup before retrying ..."
+  sleep 2
+done
 
 echo "[deploy] Restarting backend service ..."
 systemctl restart saas-app
