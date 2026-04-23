@@ -39,6 +39,14 @@ DB_PASSWORD=$(aws ssm get-parameter \
 export SECRET_KEY
 export DB_PASSWORD
 
+# Rebuild DATABASE_URL from the current env plus the freshly fetched secret
+# so an inherited service-level DATABASE_URL cannot carry a stale password.
+DB_HOST="${DB_HOST:-127.0.0.1}"
+DB_PORT="${DB_PORT:-5432}"
+DB_NAME="${DB_NAME:-network_ops_db}"
+DB_USER="${DB_USER:-postgres}"
+export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
 # 3. Start the backend
 echo "[start] Starting backend on ${LISTEN_HOST}:${LISTEN_PORT} ..."
 cd "$APP_DIR"

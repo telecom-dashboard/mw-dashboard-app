@@ -122,6 +122,7 @@ Responsibilities:
 
 - load `/opt/app/shared/backend.env`
 - fetch secrets from Parameter Store
+- rebuild the runtime database URL from `DB_*` values plus the fetched DB password
 - export `SECRET_KEY` and `DB_PASSWORD`
 - start `uvicorn` from the backend virtualenv
 
@@ -130,6 +131,11 @@ Important defaults:
 - env file: `/opt/app/shared/backend.env`
 - app dir: `/opt/app/current/backend`
 - venv dir: `/opt/app/current/backend/.venv`
+
+Runtime note:
+
+- the app repo now treats the SSM-fetched `DB_PASSWORD` as the source of truth for backend DB access
+- a stale inherited service-level `DATABASE_URL` should not be relied on to carry the runtime DB password
 
 ## Release Bundle Contract
 

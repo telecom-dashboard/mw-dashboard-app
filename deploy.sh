@@ -17,6 +17,7 @@ BACKEND_DIR="${APP_ROOT}/backend"
 SHARED_ENV="/opt/app/shared/backend.env"
 VENV_DIR="${VENV_DIR:-${BACKEND_DIR}/.venv}"
 DB_INIT_SCRIPT="${APP_ROOT}/init_local_postgres.sh"
+PARAM_PREFIX="/nw-monitor/mvp/backend"
 
 echo "[deploy] Downloading artifact from s3://${S3_BUCKET}/${S3_KEY} ..."
 aws s3 cp "s3://${S3_BUCKET}/${S3_KEY}" /tmp/deploy.tar.gz
@@ -52,6 +53,14 @@ python3 -m venv "${VENV_DIR}"
 "${VENV_DIR}/bin/pip" install --quiet --upgrade pip
 "${VENV_DIR}/bin/pip" install --quiet -r requirements.txt
 
+echo "[deploy] Fetching DB password from Parameter Store for bootstrap tasks ..."
+DB_PASSWORD="$(aws ssm get-parameter \
+  --name "${PARAM_PREFIX}/db_password" \
+  --with-decryption \
+  --query "Parameter.Value" \
+  --output text)"
+export DB_PASSWORD
+
 echo "[deploy] Bootstrapping local PostgreSQL ..."
 "${DB_INIT_SCRIPT}"
 
@@ -65,6 +74,7 @@ if [ -f "${SHARED_ENV}" ]; then
   source "${SHARED_ENV}"
   set +a
 fi
+export DATABASE_URL="postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@${DB_HOST:-127.0.0.1}:${DB_PORT:-5432}/${DB_NAME:-network_ops_db}"
 for attempt in 1 2 3 4 5; do
   if APP_ENV=production "${VENV_DIR}/bin/python" -m app.scripts.seed_initial_data; then
     break
