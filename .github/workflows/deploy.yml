@@ -24,6 +24,9 @@ jobs:
       DEPLOY_TARGET_TAG_KEY: DeployTarget
       DEPLOY_TARGET_TAG_VALUE: ${{ vars.DEPLOY_TARGET_TAG_VALUE }}
       DEPLOY_VENV_DIR: /opt/app/current/backend/.venv
+      SEED_ADMIN_USERNAME: ${{ secrets.SEED_ADMIN_USERNAME }}
+      SEED_ADMIN_EMAIL: ${{ secrets.SEED_ADMIN_EMAIL }}
+      SEED_ADMIN_PASSWORD: ${{ secrets.SEED_ADMIN_PASSWORD }}
       TARGET_INSTANCE_ID: ""
       COMMAND_ID: ""
 
@@ -107,9 +110,12 @@ jobs:
           fi
 
           TARGET_INSTANCE_ID="${MATCHED_INSTANCE_ARRAY[0]}"
+          SEED_ADMIN_USERNAME_ESCAPED="$(printf '%q' "${SEED_ADMIN_USERNAME}")"
+          SEED_ADMIN_EMAIL_ESCAPED="$(printf '%q' "${SEED_ADMIN_EMAIL}")"
+          SEED_ADMIN_PASSWORD_ESCAPED="$(printf '%q' "${SEED_ADMIN_PASSWORD}")"
 
           PARAMETERS=$(cat <<EOF
-          {"commands":["#!/bin/bash","set -euo pipefail","aws s3 cp s3://${DEPLOY_BUCKET_NAME}/${SCRIPT_KEY} /tmp/deploy.sh","chmod +x /tmp/deploy.sh","S3_BUCKET='${DEPLOY_BUCKET_NAME}' S3_KEY='${ARTIFACT_KEY}' GITHUB_SHA='${GITHUB_SHA}' VENV_DIR='${DEPLOY_VENV_DIR}' bash /tmp/deploy.sh"]}
+          {"commands":["#!/bin/bash","set -euo pipefail","aws s3 cp s3://${DEPLOY_BUCKET_NAME}/${SCRIPT_KEY} /tmp/deploy.sh","chmod +x /tmp/deploy.sh","S3_BUCKET='${DEPLOY_BUCKET_NAME}' S3_KEY='${ARTIFACT_KEY}' GITHUB_SHA='${GITHUB_SHA}' VENV_DIR='${DEPLOY_VENV_DIR}' SEED_ADMIN_USERNAME=${SEED_ADMIN_USERNAME_ESCAPED} SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL_ESCAPED} SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD_ESCAPED} bash /tmp/deploy.sh"]}
           EOF
           )
 

@@ -75,6 +75,11 @@ if [ -f "${SHARED_ENV}" ]; then
   set +a
 fi
 export DATABASE_URL="postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@${DB_HOST:-127.0.0.1}:${DB_PORT:-5432}/${DB_NAME:-network_ops_db}"
+if [ -n "${SEED_ADMIN_USERNAME:-}" ] && [ -n "${SEED_ADMIN_EMAIL:-}" ] && [ -n "${SEED_ADMIN_PASSWORD:-}" ]; then
+  echo "[deploy] Admin seed values supplied by deploy environment."
+else
+  echo "[deploy] Admin seed values not fully supplied by deploy environment. Falling back to shared env if present."
+fi
 for attempt in 1 2 3 4 5; do
   if APP_ENV=production "${VENV_DIR}/bin/python" -m app.scripts.seed_initial_data; then
     break
