@@ -31,12 +31,11 @@ This folder contains the FastAPI backend for the network monitoring dashboard.
 The backend registers these route groups:
 
 - `auth`
-- `sites`
 - `tools`
-- `microwave-links`
-- `microwave-link-imports`
 - `microwave-link-budgets`
+- `site-connectivity`
 - `client-pages`
+- `link-level`
 
 On startup, `Base.metadata.create_all(bind=engine)` runs from `app/main.py`, so the app currently creates tables directly rather than using a migration tool.
 
@@ -91,6 +90,13 @@ Default local URL:
 http://127.0.0.1:8000
 ```
 
+When the frontend is also running locally through Vite, the recommended setup is:
+
+- frontend requests use `/api`
+- Vite proxies `/api` to this backend URL
+
+That keeps local browser behavior close to MVP production and avoids needing separate frontend API host changes for normal local development.
+
 ## Production Configuration
 
 Use `backend/.env.production.example` as the template for non-secret production config.
@@ -99,6 +105,7 @@ In the MVP deployment:
 
 - non-secret config lives at `/opt/app/shared/backend.env`
 - secrets are fetched at runtime by `start.sh` from AWS Systems Manager Parameter Store
+- Nginx reverse proxies `/api` to the backend service on the same host
 
 Expected Parameter Store paths:
 

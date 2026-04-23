@@ -36,7 +36,9 @@ This repo assumes the backend is reachable behind Nginx rather than directly fro
 The frontend is a Vite app. By default the API client uses:
 
 - `VITE_API_BASE_URL` when provided
-- otherwise `http://127.0.0.1:8000`
+- otherwise `/api`
+- in local development, Vite proxies `/api` to `VITE_DEV_API_TARGET`
+- default local proxy target: `http://127.0.0.1:8000`
 
 Typical local flow:
 
@@ -45,6 +47,8 @@ cd frontend
 npm ci
 npm run dev
 ```
+
+This keeps the browser on a stable relative API path for both local and MVP usage.
 
 ### Backend
 

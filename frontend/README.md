@@ -1,15 +1,27 @@
-<<<<<<< Updated upstream
 # Frontend
 
-This folder contains the React frontend for the network monitoring dashboard.
+This folder contains the React + Vite frontend for the network monitoring dashboard.
 
 ## Stack
 
-- React
+- React 19
 - Vite
-- Axios for API access
+- React Router
+- Axios
+- TanStack Query
+- Zustand
+- XYFlow
 
-## Development
+## Main Areas
+
+- admin dashboard and protected admin routes
+- site connectivity management
+- microwave link budget management
+- link level flow view
+- client-facing dynamic pages
+- JWT-based auth with bearer token requests
+
+## Local Development
 
 Install dependencies:
 
@@ -24,139 +36,70 @@ Run the dev server:
 npm run dev
 ```
 
-Build for production:
+By default, local development uses the same browser path as MVP production:
 
-```bash
-npm run build
+- the frontend calls `/api`
+- the Vite dev server proxies `/api` to `http://127.0.0.1:8000`
+
+This keeps local development simple:
+
+- developers do not need to change frontend API URLs for normal local work
+- browser requests stay same-origin from the frontend point of view
+- most local CORS friction is avoided because Vite handles the proxy hop
+
+If the backend is running somewhere else during development, override the proxy target in `frontend/.env.development`:
+
+```text
+VITE_DEV_API_TARGET=http://127.0.0.1:8000
 ```
 
-Preview the production build locally:
+If you need the frontend to call a fully qualified API URL directly, you can still override the client base URL:
 
-```bash
-npm run preview
+```text
+VITE_API_BASE_URL=https://example.com/api
 ```
 
 ## API Configuration
 
-The frontend API client is defined in `src/api/axios.js`.
+The shared Axios client lives in `src/api/axios.js`.
 
-It uses:
+Default behavior:
 
-- `VITE_API_BASE_URL` when set
-- otherwise `http://127.0.0.1:8000`
+- `VITE_API_BASE_URL` when explicitly set
+- otherwise `/api`
 
-For local development that usually means:
+That means the same frontend build can work in both:
 
-- frontend on `http://localhost:5173`
-- backend on `http://127.0.0.1:8000`
-
-For MVP production, Nginx serves the frontend and reverse proxies `/api` on the same host/domain. When running behind same-domain Nginx, prefer a relative API base URL if you later simplify this configuration further.
+- local development through the Vite proxy
+- MVP deployment behind same-domain Nginx
 
 ## Auth Behavior
 
-The frontend stores the access token in browser storage and sends it as:
+The frontend stores the access token in browser storage and sends:
 
 ```text
 Authorization: Bearer <token>
 ```
 
-Requests are handled through Axios interceptors in `src/api/axios.js`.
+Request loading state is coordinated through Axios interceptors in `src/api/axios.js`.
 
-## Production Behavior
+## MVP Production Behavior
 
 In the MVP deployment:
 
 - GitHub Actions builds `frontend/dist`
 - `deploy.sh` copies the built files into `/var/www/app`
-- Nginx serves those files on `/`
+- Nginx serves the frontend on `/`
+- Nginx proxies `/api` to the FastAPI backend on the same host
 
-The frontend is not deployed independently from the backend in the current MVP flow. A release bundle always includes both.
-=======
-# Network Ops Dashboard
+Because the frontend already defaults to `/api`, production does not need a separate browser-facing API host hardcoded into the client for the standard MVP shape.
 
-A full-stack Telecom Network Operations Dashboard built with **React + Vite** on the frontend and **FastAPI + PostgreSQL** on the backend.  
-This project is designed to manage telecom operational data such as **sites**, **microwave links**, **microwave link budgets**, **link status**, **imports**, and **client-facing pages**.
+## Notes For Infra
 
----
+For the frontend to work without extra environment overrides, the infra side should preserve this contract:
 
-## Features
+- serve the SPA from `/`
+- reverse proxy `/api` to the backend
+- keep frontend and backend on the same public domain in MVP
 
-### Admin Features
-- Admin dashboard with module navigation
-- Site management
-- Microwave links management
-- Microwave link budget management
-- Link status monitoring
-- Ping page
-- Import center
-- Templates management
-- Navigation management
-- User management
-- Audit logs
-
-### Client Features
-- Client site search
-- Client link status page
-- Dynamic client pages
-- Export table data to Excel
-
-### Authentication
-- JWT-based login
-- Role-based access control
-- Protected admin/client routes
-
----
-
-## Tech Stack
-
-### Frontend
-- React
-- Vite
-- React Router
-- Axios
-- Lucide React
-- Tailwind-style utility classes / custom CSS
-
-### Backend
-- FastAPI
-- Uvicorn
-- SQLAlchemy
-- PostgreSQL
-- Pydantic
-- python-jose
-- passlib[bcrypt]
-
----
-
-## Project Structure
-
-```bash
-network-ops-dashboard/
-│
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── core/
-│   │   ├── db/
-│   │   ├── models/
-│   │   ├── schemas/
-│   │   ├── services/
-│   │   ├── main.py
-│   │   └── ...
-│   ├── requirements.txt
-│   └── .env.development
-│
-├── frontend/
-│   ├── src/
-│   │   ├── api/
-│   │   ├── app/
-│   │   ├── components/
-│   │   ├── constants/
-│   │   ├── contexts/
-│   │   ├── pages/
-│   │   └── ...
-│   ├── package.json
-│   └── vite.config.js
-│
-└── README.md
->>>>>>> Stashed changes
+If infra changes that contract, this frontend config and the deployment docs should be updated together.

@@ -84,6 +84,14 @@ The host must also have:
   - `/opt/app/current`
   - `/opt/app/shared`
 
+For the standard MVP deployment shape, Nginx should:
+
+- serve the frontend SPA from `/`
+- reverse proxy `/api` to the backend process listening on the host
+- keep the frontend and backend on the same public domain
+
+That contract matches the frontend default API base path of `/api`, so developers do not need separate browser-facing production URLs hardcoded into the frontend for normal MVP operation.
+
 ## `deploy.sh`
 
 `deploy.sh` is executed on the EC2 host through SSM.
