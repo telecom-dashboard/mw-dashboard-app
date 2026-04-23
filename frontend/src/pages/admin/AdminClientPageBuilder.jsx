@@ -226,7 +226,7 @@ function AdminClientPageBuilder() {
         <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
           <h2 className="mb-3 text-sm font-bold text-slate-900">Saved Pages</h2>
 
-          <div className="space-y-2">
+          <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
             {pages.length === 0 ? (
               <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-500">
                 No client pages yet.

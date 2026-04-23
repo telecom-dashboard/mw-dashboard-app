@@ -1,40 +1,44 @@
-import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard,
-  RadioTower,
-  Waypoints,
-  Network,
-  Calculator,
-  Activity,
-  Wifi,
-  Upload,
-  Table2,
-  FileStack,
-  MenuSquare,
-  Users,
-  ScrollText,
-  X,
-} from "lucide-react";
-
-const menuItems = [
-  { label: "Dashboard", path: "/admin", icon: LayoutDashboard },
-  { label: "Sites", path: "/admin/sites", icon: RadioTower },
-  { label: "Links", path: "/admin/links", icon: Waypoints },
-  { label: "Network Topology", path: "/admin/topology", icon: Network },
-  { label: "Link Budget", path: "/admin/microwave-link-budgets", icon: Calculator },
-  { label: "Client Pages", path: "/admin/client-pages", icon: FileStack },
-  { label: "Link Status", path: "/admin/link-status", icon: Activity },
-  { label: "Ping", path: "/admin/ping", icon: Wifi },
-  { label: "Import Center", path: "/admin/imports", icon: Upload },
-  { label: "Templates", path: "/admin/templates", icon: Table2 },
-  { label: "Pages", path: "/admin/pages", icon: FileStack },
-  { label: "Navigation", path: "/admin/navigation", icon: MenuSquare },
-  { label: "Users", path: "/admin/users", icon: Users },
-  { label: "Audit Logs", path: "/admin/audit-logs", icon: ScrollText },
-];
+import { useCallback, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { X } from "lucide-react";
+import { adminMenuItems } from "../../constants/adminMenuConfig";
+import { fetchLinkLevelFlow, linkLevelQueryKeys } from "../../api/linkLevelApi";
+import { useLoading } from "../../context/LoadingContext";
 
 function AdminSidebar({ isOpen, isCollapsed, isMobile, onClose }) {
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const { pulseLoading } = useLoading();
   const sidebarWidth = isCollapsed ? "w-[68px]" : "w-[220px]";
+
+  const visibleMenuItems = [...adminMenuItems]
+    .filter((item) => item.visible)
+    .sort((a, b) => a.order - b.order);
+
+  const handleItemClick = useCallback(
+    (path) => {
+      if (location.pathname !== path) {
+        pulseLoading(path === "/admin/link-level" ? 650 : 350);
+      }
+
+      if (isMobile && onClose) {
+        onClose();
+      }
+    },
+    [isMobile, location.pathname, onClose, pulseLoading]
+  );
+
+  const prefetchLinkLevel = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: linkLevelQueryKeys.flow,
+      queryFn: fetchLinkLevelFlow,
+    });
+  }, [queryClient]);
+
+  useEffect(() => {
+    prefetchLinkLevel();
+  }, [prefetchLinkLevel]);
 
   return (
     <>
@@ -79,7 +83,7 @@ function AdminSidebar({ isOpen, isCollapsed, isMobile, onClose }) {
 
           <div className="sidebar-scroll flex-1 overflow-y-auto px-2 py-3">
             <div className="space-y-1">
-              {menuItems.map((item) => {
+              {visibleMenuItems.map((item) => {
                 const Icon = item.icon;
 
                 return (
@@ -88,9 +92,13 @@ function AdminSidebar({ isOpen, isCollapsed, isMobile, onClose }) {
                     to={item.path}
                     end={item.path === "/admin"}
                     title={item.label}
-                    onClick={() => {
-                      if (isMobile) onClose();
-                    }}
+                    onClick={() => handleItemClick(item.path)}
+                    onMouseEnter={
+                      item.path === "/admin/link-level" ? prefetchLinkLevel : undefined
+                    }
+                    onFocus={
+                      item.path === "/admin/link-level" ? prefetchLinkLevel : undefined
+                    }
                     className={({ isActive }) =>
                       [
                         "group flex items-center rounded-xl px-2.5 py-2 text-xs font-medium transition-all duration-200",

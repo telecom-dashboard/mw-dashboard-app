@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   FileSpreadsheet,
+  X,
 } from "lucide-react";
 import {
   bulkDeleteMicrowaveLinkBudgets,
@@ -238,6 +239,12 @@ function AdminMicrowaveLinkBudgetPage() {
     setSearch(searchInput.trim());
   };
 
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setSearch("");
+    setPage(1);
+  };
+
   const handleCreate = async (payload) => {
     try {
       setSaving(true);
@@ -388,8 +395,8 @@ function AdminMicrowaveLinkBudgetPage() {
     );
   };
 
-  const handleToggleSelectAll = () => {
-    const rowIds = rows.map((row) => row.id);
+  const handleToggleSelectAll = (visibleRowIds) => {
+    const rowIds = visibleRowIds || rows.map((row) => row.id);
     const allSelected =
       rowIds.length > 0 && rowIds.every((id) => selectedIds.includes(id));
 
@@ -425,7 +432,7 @@ function AdminMicrowaveLinkBudgetPage() {
 
       showToast("Template downloaded successfully");
       addMessageLog("Template downloaded successfully", "success");
-    } catch (err) {
+    } catch {
       showToast("Failed to download template", "error");
       addMessageLog("Failed to download template", "error");
     }
@@ -448,7 +455,7 @@ function AdminMicrowaveLinkBudgetPage() {
 
       showToast("All data exported successfully");
       addMessageLog("All data exported successfully", "success");
-    } catch (err) {
+    } catch {
       showToast("Failed to export all data", "error");
       addMessageLog("Failed to export all data", "error");
     }
@@ -471,7 +478,7 @@ function AdminMicrowaveLinkBudgetPage() {
 
       showToast("Selected data exported successfully");
       addMessageLog("Selected data exported successfully", "success");
-    } catch (err) {
+    } catch {
       showToast("Failed to export selected data", "error");
       addMessageLog("Failed to export selected data", "error");
     }
@@ -595,18 +602,29 @@ function AdminMicrowaveLinkBudgetPage() {
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-1 flex-wrap items-center gap-2">
                 <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-2">
-                  <div className="relative w-[220px]">
-                    <Search
-                      size={13}
-                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-                    <input
-                      placeholder="Search link ID, site, vendor, IP..."
-                      value={searchInput}
-                      onChange={(e) => setSearchInput(e.target.value)}
-                      className={`w-full pl-8 pr-2.5 ${inputClass}`}
-                    />
-                  </div>
+                    <div className="relative w-[220px]">
+                      <Search
+                        size={13}
+                        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                      />
+                      <input
+                        placeholder="Search link ID, site, vendor, IP..."
+                        value={searchInput}
+                        onChange={(e) => setSearchInput(e.target.value)}
+                        className={`w-full pl-8 pr-8 ${inputClass}`}
+                      />
+
+                      {searchInput && (
+                        <button
+                          type="button"
+                          onClick={handleClearSearch}
+                          className="absolute right-2 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                          aria-label="Clear search"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
 
                   <button
                     type="submit"
@@ -941,6 +959,7 @@ function AdminMicrowaveLinkBudgetPage() {
 
             <div className="max-h-[calc(92vh-76px)] overflow-y-auto px-4 py-4">
               <AdminMicrowaveLinkBudgetForm
+                key={showCreateForm ? "create-budget" : editingRow?.id || "edit-budget"}
                 initialData={showCreateForm ? null : editingRow}
                 onSubmit={showCreateForm ? handleCreate : handleUpdate}
                 onCancel={handleCloseModal}

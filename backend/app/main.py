@@ -6,12 +6,11 @@ from app.core.database import Base, engine
 from app.db import base  # noqa: F401
 from app.routers import (
     auth,
-    sites,
     tools,
-    microwave_links,
-    microwave_link_imports,
     microwave_link_budgets,
     client_pages,
+    site_connectivity,
+    link_level,
 )
 
 app = FastAPI(title="Network Ops Dashboard API")
@@ -27,12 +26,11 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router)
-app.include_router(sites.router)
 app.include_router(tools.router)
-app.include_router(microwave_links.router)
-app.include_router(microwave_link_imports.router)
 app.include_router(microwave_link_budgets.router)
 app.include_router(client_pages.router)
+app.include_router(site_connectivity.router)
+app.include_router(link_level.router)
 
 
 @app.get("/")

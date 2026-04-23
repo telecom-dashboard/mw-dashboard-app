@@ -2,28 +2,22 @@ import { createBrowserRouter } from "react-router-dom";
 
 import ProtectedRoute from "../components/layout/ProtectedRoute";
 import AdminLayout from "../components/layout/AdminLayout";
+import ClientLayout from "../components/layout/ClientLayout";
 
 import LoginPage from "../pages/LoginPage";
 import UnauthorizedPage from "../pages/UnauthorizedPage";
 
 import AdminDashboard from "../pages/admin/AdminDashboard";
-import AdminSitesPage from "../pages/admin/AdminSitesPage";
-import AdminLinksPage from "../pages/admin/AdminLinksPage";
 import AdminTopologyPage from "../pages/admin/AdminTopologyPage";
-import AdminLinkBudgetPage from "../pages/admin/AdminLinkBudgetPage";
 import AdminMicrowaveLinkBudgetPage from "../pages/admin/AdminMicrowaveLinkBudgetPage";
-import AdminLinkStatusPage from "../pages/admin/AdminLinkStatusPage";
-import AdminPingPage from "../pages/admin/AdminPingPage";
-import AdminImportCenterPage from "../pages/admin/AdminImportCenterPage";
-import AdminTemplatesPage from "../pages/admin/AdminTemplatesPage";
-import AdminPagesPage from "../pages/admin/AdminPagesPage";
-import AdminNavigationPage from "../pages/admin/AdminNavigationPage";
+import AdminSiteConnectivityPage from "../pages/admin/AdminSiteConnectivityPage";
+import AdminLinkLevelPage from "../pages/admin/AdminLinkLevelPage";
+// import AdminPagesPage from "../pages/admin/AdminPagesPage";
 import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminAuditLogsPage from "../pages/admin/AdminAuditLogsPage";
 import AdminClientPageBuilder from "../pages/admin/AdminClientPageBuilder";
 
 import ClientDynamicPage from "../pages/client/ClientDynamicPage";
-import ClientLayout from "../components/layout/ClientLayout";
 
 const router = createBrowserRouter([
   {
@@ -34,7 +28,6 @@ const router = createBrowserRouter([
     path: "/unauthorized",
     element: <UnauthorizedPage />,
   },
-
   {
     path: "/admin",
     element: (
@@ -44,23 +37,25 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <AdminDashboard /> },
-      { path: "sites", element: <AdminSitesPage /> },
-      { path: "links", element: <AdminLinksPage /> },
       { path: "topology", element: <AdminTopologyPage /> },
-      { path: "link-budget", element: <AdminLinkBudgetPage /> },
-      { path: "microwave-link-budgets", element: <AdminMicrowaveLinkBudgetPage /> },
+      {
+        path: "microwave-link-budgets",
+        element: <AdminMicrowaveLinkBudgetPage />,
+      },
+      {
+        path: "site-connectivity",
+        element: <AdminSiteConnectivityPage />,
+      },
+      {
+        path: "link-level",
+        element: <AdminLinkLevelPage />,
+      },
       { path: "client-pages", element: <AdminClientPageBuilder /> },
-      { path: "link-status", element: <AdminLinkStatusPage /> },
-      { path: "ping", element: <AdminPingPage /> },
-      { path: "imports", element: <AdminImportCenterPage /> },
-      { path: "templates", element: <AdminTemplatesPage /> },
-      { path: "pages", element: <AdminPagesPage /> },
-      { path: "navigation", element: <AdminNavigationPage /> },
+      // { path: "pages", element: <AdminPagesPage /> },
       { path: "users", element: <AdminUsersPage /> },
       { path: "audit-logs", element: <AdminAuditLogsPage /> },
     ],
   },
-
   {
     path: "/client",
     element: (
@@ -70,7 +65,6 @@ const router = createBrowserRouter([
     ),
     children: [{ path: "pages/:slug", element: <ClientDynamicPage /> }],
   },
-
   {
     path: "/client/pages/:slug",
     element: (
@@ -79,7 +73,6 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
-
   {
     path: "*",
     element: <LoginPage />,

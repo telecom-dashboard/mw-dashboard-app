@@ -1,36 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, FileStack, LogOut } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LogOut } from "lucide-react";
 
-import { getPublishedClientPagesForNavApi } from "../../api/clientPageApi";
+import {
+  clientPageQueryKeys,
+  fetchPublishedClientPagesForNav,
+} from "../../api/clientPageApi";
 import { useAuth } from "../../context/AuthContext";
 import { useLoading } from "../../context/LoadingContext";
 import TopLoadingBar from "../common/TopLoadingBar";
 
 function ClientTopNav() {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { user, logout } = useAuth();
   const { pulseLoading } = useLoading();
   const location = useLocation();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchNavItems = async () => {
-      try {
-        setLoading(true);
-        const data = await getPublishedClientPagesForNavApi();
-        setItems(data || []);
-      } catch (error) {
-        console.error("Failed to load client nav items", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchNavItems();
-  }, []);
+  const { data: items = [], isLoading: loading } = useQuery({
+    queryKey: clientPageQueryKeys.publishedNav,
+    queryFn: fetchPublishedClientPagesForNav,
+  });
 
   const navItems = useMemo(
     () =>
@@ -42,8 +34,12 @@ function ClientTopNav() {
     [items]
   );
 
+  const featuredPath = navItems[0]?.path || null;
+  const hasActivePage = navItems.some((item) => item.path === location.pathname);
+
   const goTo = (path) => {
     if (!path || location.pathname === path) return;
+    setMenuOpen(false);
     pulseLoading(300);
     navigate(path);
   };
@@ -54,71 +50,117 @@ function ClientTopNav() {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-sky-100 bg-white/90 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md">
       <TopLoadingBar />
 
-      <div className="flex min-h-12 items-center justify-between gap-3 px-3 py-2 sm:px-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <button
-            onClick={() => goTo(navItems[0]?.path)}
-            className="flex items-center gap-2 transition hover:text-sky-700"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-sm">
-              <LayoutDashboard size={15} />
-            </div>
+      <div className="px-3 py-2 sm:px-5">
+        <div className="flex min-h-10 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-4">
+            <button
+              type="button"
+              onClick={() => goTo(featuredPath)}
+              className="flex min-w-0 items-center gap-2 text-slate-900 transition hover:text-sky-700"
+            >
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-sky-500 via-cyan-500 to-teal-400 text-white shadow-sm">
+                <LayoutDashboard size={14} />
+              </div>
 
-            <div className="hidden sm:flex flex-col items-start leading-tight">
-              <span className="text-sm font-semibold text-sky-950">Network Ops</span>
-              <span className="text-[11px] text-sky-600">Client Workspace</span>
-            </div>
-          </button>
+              <div className="hidden min-w-0 sm:flex flex-col leading-tight">
+                <span className="truncate text-sm font-semibold">Network Ops</span>
+                <span className="truncate text-[11px] text-sky-700">
+                  Client Workspace
+                </span>
+              </div>
+            </button>
 
-          <nav className="flex flex-wrap items-center gap-1">
-            {loading && (
-              <div className="px-2 text-xs text-slate-400">Loading pages...</div>
-            )}
-
-            {!loading && navItems.length === 0 && (
-              <div className="px-2 text-xs text-slate-400">No published pages</div>
-            )}
-
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
-
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => goTo(item.path)}
+            <div
+              className="relative"
+              onMouseEnter={() => setMenuOpen(true)}
+              onMouseLeave={() => setMenuOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setMenuOpen((prev) => !prev)}
+                className={[
+                  "group relative inline-flex h-8 items-center gap-1.5 text-sm font-medium transition",
+                  hasActivePage || menuOpen
+                    ? "text-sky-800"
+                    : "text-slate-600 hover:text-sky-800",
+                ].join(" ")}
+              >
+                <span>Data Tables</span>
+                <ChevronDown
+                  size={14}
+                  className={`transition ${menuOpen ? "rotate-180" : ""}`}
+                />
+                <span
                   className={[
-                    "inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition",
-                    isActive
-                      ? "border-sky-500 bg-sky-500 text-white"
-                      : "border-sky-200 bg-white text-slate-600 hover:bg-sky-50 hover:text-sky-800",
+                    "absolute inset-x-0 -bottom-2 h-0.5 rounded-full transition",
+                    hasActivePage || menuOpen ? "bg-sky-600" : "bg-transparent",
                   ].join(" ")}
-                >
-                  <FileStack size={14} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
+                />
+              </button>
 
-        <div className="ml-auto flex items-center gap-2">
-          <div className="hidden sm:flex flex-col items-end leading-tight">
-            <span className="text-xs font-semibold text-slate-800">
-              {user?.username || "User"}
-            </span>
-            <span className="text-[11px] capitalize text-sky-600">{user?.role || ""}</span>
+              {menuOpen && (
+                <div className="absolute left-0 top-full z-50 mt-3 min-w-[240px] border border-slate-200 bg-white py-2 shadow-xl">
+                  {loading ? (
+                    <div className="px-3 py-2 text-xs text-slate-500">
+                      Loading pages...
+                    </div>
+                  ) : navItems.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-slate-500">
+                      No published pages
+                    </div>
+                  ) : (
+                    <div className="max-h-[320px] overflow-y-auto">
+                      {navItems.map((item) => {
+                        const isActive = location.pathname === item.path;
+
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => goTo(item.path)}
+                            className={[
+                              "relative flex w-full items-center px-3 py-2 text-left text-sm transition",
+                              isActive
+                                ? "bg-sky-50 text-sky-800"
+                                : "text-slate-700 hover:bg-slate-50 hover:text-sky-800",
+                            ].join(" ")}
+                          >
+                            <span className="truncate">{item.label}</span>
+                            {isActive && (
+                              <span className="absolute inset-y-1 left-0 w-0.5 bg-sky-600" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
-          <button
-            onClick={handleLogout}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-sky-200 bg-white px-2.5 text-xs font-medium text-sky-700 transition hover:bg-sky-50"
-          >
-            <LogOut size={14} />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden sm:flex flex-col items-end leading-tight">
+              <span className="text-xs font-semibold text-slate-800">
+                {user?.username || "User"}
+              </span>
+              <span className="text-[11px] capitalize text-sky-700">
+                {user?.role || ""}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-800"
+            >
+              <LogOut size={14} />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
         </div>
       </div>
     </header>

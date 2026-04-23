@@ -1,45 +1,81 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
+import { useShallow } from "zustand/react/shallow";
 import * as XLSX from "xlsx";
 import {
-  RadioTower,
-  Search,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
   Download,
   Eye,
-  Activity,
-  CheckCircle2,
-  AlertTriangle,
+  RadioTower,
+  Search,
+  X,
 } from "lucide-react";
 import {
-  getPublicClientPageApi,
-  getPublicClientPageDataApi,
+  clientPageQueryKeys,
+  fetchAllPublicClientPageData,
+  fetchPublicClientPageConfig,
+  fetchPublicClientPageData,
 } from "../../api/clientPageApi";
+import StandardDataTable from "../../components/common/StandardDataTable";
+import {
+  DEFAULT_CLIENT_PAGE_UI_STATE,
+  useClientPageStore,
+} from "../../stores/useClientPageStore";
 
 function ClientDynamicPage() {
   const { slug } = useParams();
-
-  const [pageConfig, setPageConfig] = useState(null);
-  const [rows, setRows] = useState([]);
-  const [allFilteredRows, setAllFilteredRows] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [configLoading, setConfigLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [loadingAllRows, setLoadingAllRows] = useState(false);
-  const [error, setError] = useState("");
+  const {
+    pageState,
+    ensurePage,
+    hydratePageSize,
+    setSearchInput: setSearchInputAction,
+    commitSearch,
+    clearSearch,
+    selectedRowIds,
+    toggleRowSelection: toggleRowSelectionAction,
+    toggleSelectAllRows: toggleSelectAllRowsAction,
+    clearSelection: clearSelectionAction,
+    viewingRow,
+    setViewingRow: setViewingRowAction,
+    clearViewingRow,
+    sortConfig,
+    setSort: setSortAction,
+    page,
+    setPage: setPageAction,
+    pageSize,
+    setPageSize: setPageSizeAction,
+  } = useClientPageStore(
+    useShallow((state) => {
+      const currentPageState =
+        state.pagesBySlug[slug] || DEFAULT_CLIENT_PAGE_UI_STATE;
 
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [vendor, setVendor] = useState("");
-  const [region, setRegion] = useState("");
-  const [status, setStatus] = useState("");
-
-  const [selectedRowIds, setSelectedRowIds] = useState([]);
-  const [viewingRow, setViewingRow] = useState(null);
-
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+      return {
+        pageState: currentPageState,
+        ensurePage: state.ensurePage,
+        hydratePageSize: state.hydratePageSize,
+        setSearchInput: state.setSearchInput,
+        commitSearch: state.commitSearch,
+        clearSearch: state.clearSearch,
+        selectedRowIds: currentPageState.selectedRowIds,
+        toggleRowSelection: state.toggleRowSelection,
+        toggleSelectAllRows: state.toggleSelectAllRows,
+        clearSelection: state.clearSelection,
+        viewingRow: currentPageState.viewingRow,
+        setViewingRow: state.setViewingRow,
+        clearViewingRow: state.clearViewingRow,
+        sortConfig: currentPageState.sortConfig,
+        setSort: state.setSort,
+        page: currentPageState.page,
+        setPage: state.setPage,
+        pageSize: currentPageState.pageSize,
+        setPageSize: state.setPageSize,
+      };
+    })
+  );
 
   const smallBtnClass =
     "inline-flex h-8 items-center justify-center gap-1 rounded-md border px-2.5 text-[11px] font-medium whitespace-nowrap transition";
@@ -48,141 +84,109 @@ function ClientDynamicPage() {
   const modalBtnClass =
     "rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50";
 
-  const fetchConfig = async () => {
-    try {
-      setConfigLoading(true);
-      setError("");
-
-      const data = await getPublicClientPageApi(slug);
-      setPageConfig(data);
-
-      const defaultPageSize = data?.layout?.pagination?.page_size || 10;
-      setPageSize(defaultPageSize);
-    } catch (err) {
-      setError(err?.response?.data?.detail || "Failed to load page config");
-    } finally {
-      setConfigLoading(false);
+  useEffect(() => {
+    if (slug) {
+      ensurePage(slug);
     }
-  };
+  }, [ensurePage, slug]);
 
-  const fetchRows = async () => {
-    if (!pageConfig) return;
-
-    try {
-      setLoading(true);
-      setError("");
-
-      const data = await getPublicClientPageDataApi(slug, {
-        page,
-        page_size: pageSize,
-        search: search || undefined,
-        vendor: vendor || undefined,
-        region: region || undefined,
-        status: status || undefined,
-      });
-
-      setRows(data.items || []);
-      setTotal(data.total || 0);
-      setTotalPages(data.total_pages || 1);
-      setSelectedRowIds([]);
-    } catch (err) {
-      setError(err?.response?.data?.detail || "Failed to load client data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAllFilteredRows = async () => {
-    if (!pageConfig) return;
-
-    try {
-      setLoadingAllRows(true);
-
-      let currentPage = 1;
-      let lastPage = 1;
-      let merged = [];
-
-      do {
-        const data = await getPublicClientPageDataApi(slug, {
-          page: currentPage,
-          page_size: 500,
-          search: search || undefined,
-          vendor: vendor || undefined,
-          region: region || undefined,
-          status: status || undefined,
-        });
-
-        merged = [...merged, ...(data?.items || [])];
-        lastPage = data?.total_pages || 1;
-        currentPage += 1;
-      } while (currentPage <= lastPage);
-
-      setAllFilteredRows(merged);
-    } catch (err) {
-      console.error("Failed to fetch all filtered rows", err);
-    } finally {
-      setLoadingAllRows(false);
-    }
-  };
+  const { data: pageConfig = null, isLoading: configLoading, error: configError } =
+    useQuery({
+      queryKey: clientPageQueryKeys.publicConfig(slug),
+      queryFn: () => fetchPublicClientPageConfig(slug),
+      enabled: Boolean(slug),
+    });
 
   useEffect(() => {
-    fetchConfig();
-  }, [slug]);
+    if (!slug || !pageConfig) {
+      return;
+    }
+
+    hydratePageSize(slug, pageConfig?.layout?.pagination?.page_size || 10);
+  }, [hydratePageSize, pageConfig, slug]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setPage(1);
-      setSearch(searchInput.trim());
+      commitSearch(slug, pageState.searchInput);
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [searchInput]);
+  }, [commitSearch, pageState.searchInput, slug]);
 
-  useEffect(() => {
-    fetchRows();
-  }, [pageConfig, page, pageSize, search, vendor, region, status]);
+  const {
+    data: pageData,
+    isLoading: loading,
+    error: dataError,
+  } = useQuery({
+    queryKey: clientPageQueryKeys.publicData(slug, {
+      page,
+      page_size: pageSize || 10,
+      search: pageState.search,
+    }),
+    queryFn: () =>
+      fetchPublicClientPageData(slug, {
+        page,
+        page_size: pageSize || 10,
+        search: pageState.search || undefined,
+      }),
+    enabled: Boolean(slug && pageConfig && pageSize),
+    placeholderData: (previousData) => previousData,
+  });
 
-  useEffect(() => {
-    fetchAllFilteredRows();
-  }, [pageConfig, search, vendor, region, status]);
+  const {
+    data: allFilteredRows = [],
+    isLoading: loadingAllRows,
+  } = useQuery({
+    queryKey: clientPageQueryKeys.publicAllData(slug, pageState.search),
+    queryFn: () => fetchAllPublicClientPageData(slug, pageState.search),
+    enabled: Boolean(slug && pageConfig),
+    placeholderData: (previousData) => previousData,
+  });
+
+  const rows = useMemo(() => pageData?.items || [], [pageData]);
+  const total = pageData?.total || 0;
+  const totalPages = pageData?.total_pages || 1;
+  const error =
+    configError?.response?.data?.detail ||
+    dataError?.response?.data?.detail ||
+    configError?.message ||
+    dataError?.message ||
+    "";
 
   const visibleColumns = useMemo(
     () => pageConfig?.layout?.columns?.filter((col) => col.visible) || [],
     [pageConfig]
   );
 
-  const filterKeys = useMemo(
-    () => (pageConfig?.layout?.filters || []).map((f) => f.key),
-    [pageConfig]
-  );
-
-  const vendorOptions = useMemo(() => {
-    const set = new Set(allFilteredRows.map((row) => row.vendor).filter(Boolean));
-    return Array.from(set).sort();
-  }, [allFilteredRows]);
-
-  const regionOptions = useMemo(() => {
-    const set = new Set(allFilteredRows.map((row) => row.region).filter(Boolean));
-    return Array.from(set).sort();
-  }, [allFilteredRows]);
-
-  const statusOptions = useMemo(() => {
-    const set = new Set(allFilteredRows.map((row) => row.status).filter(Boolean));
-    return Array.from(set).sort();
-  }, [allFilteredRows]);
-
-  const currentPageRowIds = useMemo(
-    () => rows.map((row) => row.id).filter(Boolean),
-    [rows]
-  );
-
-  const allCurrentPageSelected =
-    currentPageRowIds.length > 0 &&
-    currentPageRowIds.every((id) => selectedRowIds.includes(id));
-
   const selectedRows = useMemo(
     () => allFilteredRows.filter((row) => selectedRowIds.includes(row.id)),
     [allFilteredRows, selectedRowIds]
+  );
+
+  const sortedRows = useMemo(() => {
+    if (!sortConfig.key) {
+      return rows;
+    }
+
+    return [...rows].sort((leftRow, rightRow) => {
+      const leftValue = buildSortValue(leftRow?.[sortConfig.key]);
+      const rightValue = buildSortValue(rightRow?.[sortConfig.key]);
+
+      if (leftValue < rightValue) {
+        return sortConfig.direction === "asc" ? -1 : 1;
+      }
+
+      if (leftValue > rightValue) {
+        return sortConfig.direction === "asc" ? 1 : -1;
+      }
+
+      return 0;
+    });
+  }, [rows, sortConfig]);
+
+  const currentPageRowIds = useMemo(
+    () => sortedRows.map((row) => row.id).filter(Boolean),
+    [sortedRows]
   );
 
   const summary = useMemo(() => {
@@ -210,7 +214,7 @@ function ClientDynamicPage() {
     {
       label: "Total Records",
       value: summary.totalLinks,
-      sub: "All filtered data",
+      sub: "All searchable data",
       icon: RadioTower,
       iconWrap: "bg-sky-100 text-sky-700",
     },
@@ -238,31 +242,32 @@ function ClientDynamicPage() {
   ];
 
   const toggleRowSelection = (rowId) => {
-    setSelectedRowIds((prev) =>
-      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
-    );
+    toggleRowSelectionAction(slug, rowId);
   };
 
-  const toggleSelectAllCurrentPage = () => {
-    setSelectedRowIds((prev) => {
-      if (allCurrentPageSelected) {
-        return prev.filter((id) => !currentPageRowIds.includes(id));
-      }
-      return Array.from(new Set([...prev, ...currentPageRowIds]));
-    });
+  const toggleSelectAllCurrentPage = (visibleRowIds) => {
+    const rowIds = visibleRowIds || currentPageRowIds;
+    toggleSelectAllRowsAction(slug, rowIds);
+  };
+
+  const handleSort = (key) => {
+    setSortAction(slug, key);
   };
 
   const handleViewSelected = () => {
-    if (selectedRows.length !== 1) return;
-    setViewingRow(selectedRows[0]);
+    if (selectedRows.length !== 1) {
+      return;
+    }
+
+    setViewingRowAction(slug, selectedRows[0]);
   };
 
   const clearSelection = () => {
-    setSelectedRowIds([]);
+    clearSelectionAction(slug);
   };
 
-  const buildExportRows = (dataRows) => {
-    return dataRows.map((row) => {
+  const buildExportRows = (dataRows) =>
+    dataRows.map((row) => {
       const formattedRow = {};
 
       visibleColumns.forEach((col) => {
@@ -271,7 +276,6 @@ function ClientDynamicPage() {
 
       return formattedRow;
     });
-  };
 
   const downloadExcel = (dataRows, fileName) => {
     const exportRows = buildExportRows(dataRows);
@@ -308,8 +312,11 @@ function ClientDynamicPage() {
 
   const handleSearch = (e) => {
     e.preventDefault();
-    setPage(1);
-    setSearch(searchInput.trim());
+    commitSearch(slug, pageState.searchInput);
+  };
+
+  const handleClearSearch = () => {
+    clearSearch(slug);
   };
 
   if (configLoading) {
@@ -331,7 +338,7 @@ function ClientDynamicPage() {
               {pageConfig?.title || "Client View"}
             </h1>
             <p className="text-[11px] text-slate-500">
-              View and export microwave link budget records.
+              Search, review, and export client records in a read-only workspace.
             </p>
           </div>
 
@@ -371,42 +378,52 @@ function ClientDynamicPage() {
           <div className="border-b border-slate-200 px-3 py-2.5">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-1 flex-wrap items-center gap-2">
-                {pageConfig?.layout?.search?.enabled && (
-                  <form
-                    onSubmit={handleSearch}
-                    className="flex flex-wrap items-center gap-2"
-                  >
-                    <div className="relative w-[240px]">
-                      <Search
-                        size={13}
-                        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-                      />
-                      <input
-                        placeholder={
-                          pageConfig?.layout?.search?.placeholder || "Search..."
-                        }
-                        value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
-                        className={`w-full pl-8 pr-2.5 ${inputClass}`}
-                      />
-                    </div>
+                <form
+                  onSubmit={handleSearch}
+                  className="flex flex-wrap items-center gap-2"
+                >
+                  <div className="relative w-[220px]">
+                    <Search
+                      size={13}
+                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      placeholder={
+                        pageConfig?.layout?.search?.placeholder ||
+                        "Search records..."
+                      }
+                      value={pageState.searchInput}
+                      onChange={(e) => setSearchInputAction(slug, e.target.value)}
+                      className={`w-full pl-8 pr-8 ${inputClass}`}
+                    />
 
-                    <button
-                      type="submit"
-                      className={`${smallBtnClass} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`}
-                    >
-                      <Search size={12} />
-                      Search
-                    </button>
-                  </form>
-                )}
+                    {pageState.searchInput && (
+                      <button
+                        type="button"
+                        onClick={handleClearSearch}
+                        className="absolute right-2 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Clear search"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    className={`${smallBtnClass} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`}
+                  >
+                    <Search size={12} />
+                    Search
+                  </button>
+                </form>
               </div>
 
               <div className="flex flex-wrap items-center justify-start gap-2 xl:justify-end">
                 <button
                   type="button"
                   onClick={handleExportAll}
-                  disabled={exporting || allFilteredRows.length === 0}
+                  disabled={exporting || loadingAllRows || allFilteredRows.length === 0}
                   className={`${smallBtnClass} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50`}
                 >
                   <Download size={12} />
@@ -436,79 +453,11 @@ function ClientDynamicPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {filterKeys.includes("vendor") && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Vendor</span>
-                    <select
-                      value={vendor}
-                      onChange={(e) => {
-                        setPage(1);
-                        setVendor(e.target.value);
-                        setSelectedRowIds([]);
-                      }}
-                      className={`${inputClass} min-w-[120px]`}
-                    >
-                      <option value="">All</option>
-                      {vendorOptions.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {filterKeys.includes("region") && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Region</span>
-                    <select
-                      value={region}
-                      onChange={(e) => {
-                        setPage(1);
-                        setRegion(e.target.value);
-                        setSelectedRowIds([]);
-                      }}
-                      className={`${inputClass} min-w-[120px]`}
-                    >
-                      <option value="">All</option>
-                      {regionOptions.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {filterKeys.includes("status") && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Status</span>
-                    <select
-                      value={status}
-                      onChange={(e) => {
-                        setPage(1);
-                        setStatus(e.target.value);
-                        setSelectedRowIds([]);
-                      }}
-                      className={`${inputClass} min-w-[120px]`}
-                    >
-                      <option value="">All</option>
-                      {statusOptions.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={handleViewSelected}
                   disabled={selectedRows.length !== 1}
-                  className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className={`${smallBtnClass} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50`}
                 >
                   <Eye size={12} />
                   View
@@ -518,8 +467,9 @@ function ClientDynamicPage() {
                   type="button"
                   onClick={clearSelection}
                   disabled={selectedRowIds.length === 0}
-                  className="inline-flex h-8 items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 text-[11px] font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className={`${smallBtnClass} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50`}
                 >
+                  <X size={12} />
                   Clear
                 </button>
               </div>
@@ -542,7 +492,7 @@ function ClientDynamicPage() {
             <div className="flex w-full flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-sm font-semibold text-slate-900">
-                  Client Records
+                  {pageConfig?.title || "Client Records"}
                 </h2>
               </div>
 
@@ -562,88 +512,28 @@ function ClientDynamicPage() {
           </div>
 
           <div className="w-full max-w-full overflow-x-auto bg-white px-2 py-2">
-            <table className="w-full min-w-max border-collapse bg-white">
-              <thead>
-                <tr>
-                  <th className={thClass}>
-                    <input
-                      type="checkbox"
-                      checked={allCurrentPageSelected}
-                      onChange={toggleSelectAllCurrentPage}
-                      className="h-4 w-4 cursor-pointer rounded border-slate-300"
-                    />
-                  </th>
-
-                  {visibleColumns.map((col) => (
-                    <th key={col.key} className={thClass}>
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={visibleColumns.length + 1}
-                      className="px-6 py-12 text-center"
-                    >
-                      <div className="text-sm font-medium text-slate-500">
-                        Loading client records...
-                      </div>
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={visibleColumns.length + 1}
-                      className="px-6 py-12 text-center"
-                    >
-                      <div className="text-4xl">📄</div>
-                      <h3 className="mt-3 text-lg font-semibold text-slate-900">
-                        No records found
-                      </h3>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Try adjusting search or filters to see more results.
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row, index) => {
-                    const isSelected = selectedRowIds.includes(row.id);
-
-                    return (
-                      <tr
-                        key={row.id}
-                        className={`transition ${
-                          isSelected
-                            ? "bg-sky-50"
-                            : index % 2 === 0
-                            ? "bg-white"
-                            : "bg-slate-50/50"
-                        } hover:bg-sky-50`}
-                      >
-                        <td className={tdClass}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleRowSelection(row.id)}
-                            className="h-4 w-4 cursor-pointer rounded border-slate-300"
-                          />
-                        </td>
-
-                        {visibleColumns.map((col, colIndex) => (
-                          <td key={col.key} className={tdClass}>
-                            {renderStyledCell(row[col.key], col.key, colIndex === 0)}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+            <StandardDataTable
+              columns={visibleColumns.map((column) => ({
+                key: column.key,
+                label: column.label,
+              }))}
+              rows={sortedRows}
+              selectedIds={selectedRowIds}
+              onToggleSelectRow={toggleRowSelection}
+              onToggleSelectAll={toggleSelectAllCurrentPage}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              renderCell={(row, columnKey, column) =>
+                renderStyledCell(
+                  row[columnKey],
+                  columnKey,
+                  column.key === visibleColumns[0]?.key
+                )
+              }
+              emptyTitle="No records found"
+              emptyDescription="Try adjusting your search to see more results."
+              emptyIcon={RadioTower}
+            />
           </div>
 
           {pageConfig?.layout?.pagination?.enabled && (
@@ -654,8 +544,7 @@ function ClientDynamicPage() {
                   <select
                     value={pageSize}
                     onChange={(e) => {
-                      setPage(1);
-                      setPageSize(Number(e.target.value));
+                      setPageSizeAction(slug, Number(e.target.value));
                     }}
                     className={inputClass}
                   >
@@ -675,7 +564,8 @@ function ClientDynamicPage() {
                   </span>
 
                   <button
-                    onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                    type="button"
+                    onClick={() => setPageAction(slug, Math.max(page - 1, 1))}
                     disabled={page <= 1}
                     className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -683,9 +573,8 @@ function ClientDynamicPage() {
                   </button>
 
                   <button
-                    onClick={() =>
-                      setPage((prev) => Math.min(prev + 1, totalPages || 1))
-                    }
+                    type="button"
+                    onClick={() => setPageAction(slug, Math.min(page + 1, totalPages || 1))}
                     disabled={page >= totalPages}
                     className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -702,7 +591,7 @@ function ClientDynamicPage() {
         <div className="fixed inset-0 z-40">
           <div
             className="absolute inset-0 bg-slate-900/30"
-            onClick={() => setViewingRow(null)}
+            onClick={() => clearViewingRow(slug)}
           />
           <div className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l border-slate-200 bg-white shadow-2xl">
             <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3">
@@ -711,11 +600,15 @@ function ClientDynamicPage() {
                   Record Details
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Detailed client record information
+                  Read-only client record information
                 </p>
               </div>
-              <button onClick={() => setViewingRow(null)} className={modalBtnClass}>
-                ✕
+              <button
+                type="button"
+                onClick={() => clearViewingRow(slug)}
+                className={modalBtnClass}
+              >
+                <X size={14} />
               </button>
             </div>
 
@@ -748,17 +641,27 @@ function DetailItem({ label, value }) {
   );
 }
 
-const thClass =
-  "whitespace-nowrap border-b border-slate-300 bg-slate-100 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-600";
+function buildSortValue(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
 
-const tdClass =
-  "whitespace-nowrap border-b border-slate-200 px-4 py-3 align-middle text-sm text-slate-700";
+  if (typeof value === "boolean") {
+    return value ? 1 : 0;
+  }
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  return String(value).toLowerCase();
+}
 
 const infoBadgeClass =
-  "inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700";
+  "inline-flex rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-700";
 
 const protocolBadgeClass =
-  "inline-flex rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1 text-xs font-semibold uppercase text-cyan-700";
+  "inline-flex rounded-md border border-cyan-200 bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-cyan-700";
 
 function statusBadgeClass(status) {
   switch (status) {
@@ -785,7 +688,7 @@ function renderStyledCell(value, key, isPrimary = false) {
   if (key === "status") {
     return (
       <span
-        className={`inline-flex rounded-md border px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(
+        className={`inline-flex rounded-md border px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(
           value
         )}`}
       >
@@ -797,7 +700,7 @@ function renderStyledCell(value, key, isPrimary = false) {
   if (key === "active") {
     return (
       <span
-        className={`inline-flex rounded-md border px-2.5 py-1 text-xs font-semibold ${activeBadgeClass(
+        className={`inline-flex rounded-md border px-2 py-0.5 text-[10px] font-semibold ${activeBadgeClass(
           !!value
         )}`}
       >
@@ -822,7 +725,9 @@ function renderStyledCell(value, key, isPrimary = false) {
 }
 
 function formatCell(value, key) {
-  if (value === null || value === undefined || value === "") return "-";
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
 
   if (key === "active") {
     return value ? "Active" : "Inactive";
