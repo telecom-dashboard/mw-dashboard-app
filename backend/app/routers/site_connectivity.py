@@ -13,6 +13,9 @@ from sqlalchemy.orm import Session, aliased
 from app.core.database import get_db
 from app.models.site_connectivity import SiteConnectivity
 from app.models.microwave_link_budget import MicrowaveLinkBudget
+from app.models.user import User
+from app.routers.auth import require_admin
+from app.utils.audit import create_audit_log, model_to_audit_dict
 
 router = APIRouter(prefix="/site-connectivity", tags=["Site Connectivity"])
 
@@ -293,7 +296,11 @@ def list_site_connectivity(
 
 
 @router.post("/")
-def create_site_connectivity(payload: dict[str, Any], db: Session = Depends(get_db)):
+def create_site_connectivity(
+    payload: dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     item = SiteConnectivity(
         sitea_id=clean_str(payload.get("sitea_id")),
         siteb_id=clean_str(payload.get("siteb_id")),
@@ -309,17 +316,32 @@ def create_site_connectivity(payload: dict[str, Any], db: Session = Depends(get_
         updated_at=datetime.utcnow(),
     )
     db.add(item)
+    db.flush()
+    create_audit_log(
+        db,
+        table_name="site_connectivity",
+        record_id=item.id,
+        action="create",
+        current_user=current_user,
+        new_values=model_to_audit_dict(item),
+    )
     db.commit()
     db.refresh(item)
     return {"message": "Site connectivity record created successfully", "id": item.id}
 
 
 @router.put("/{item_id}")
-def update_site_connectivity(item_id: int, payload: dict[str, Any], db: Session = Depends(get_db)):
+def update_site_connectivity(
+    item_id: int,
+    payload: dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     item = db.query(SiteConnectivity).filter(SiteConnectivity.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Site connectivity record not found")
 
+    old_values = model_to_audit_dict(item)
     item.sitea_id = clean_str(payload.get("sitea_id"))
     item.siteb_id = clean_str(payload.get("siteb_id"))
     item.link_id = clean_str(payload.get("link_id"))
@@ -332,36 +354,89 @@ def update_site_connectivity(item_id: int, payload: dict[str, Any], db: Session 
     item.is_active = bool(payload.get("is_active", True))
     item.updated_at = datetime.utcnow()
 
+    create_audit_log(
+        db,
+        table_name="site_connectivity",
+        record_id=item.id,
+        action="update",
+        current_user=current_user,
+        old_values=old_values,
+        new_values=model_to_audit_dict(item),
+    )
     db.commit()
     db.refresh(item)
     return {"message": "Site connectivity record updated successfully"}
 
 
 @router.delete("/{item_id}")
-def delete_site_connectivity(item_id: int, db: Session = Depends(get_db)):
+def delete_site_connectivity(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     item = db.query(SiteConnectivity).filter(SiteConnectivity.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Site connectivity record not found")
 
+    old_values = model_to_audit_dict(item)
     db.delete(item)
+    create_audit_log(
+        db,
+        table_name="site_connectivity",
+        record_id=item_id,
+        action="delete",
+        current_user=current_user,
+        old_values=old_values,
+    )
     db.commit()
     return {"message": "Site connectivity record deleted successfully"}
 
 
 @router.post("/bulk-delete")
-def bulk_delete_site_connectivity(payload: dict[str, Any], db: Session = Depends(get_db)):
+def bulk_delete_site_connectivity(
+    payload: dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     ids = payload.get("ids") or []
     if not ids:
         raise HTTPException(status_code=400, detail="No IDs provided")
 
+    items = (
+        db.query(SiteConnectivity)
+        .filter(SiteConnectivity.id.in_(ids))
+        .all()
+    )
+    old_values = [model_to_audit_dict(item) for item in items]
     db.query(SiteConnectivity).filter(SiteConnectivity.id.in_(ids)).delete(synchronize_session=False)
+    create_audit_log(
+        db,
+        table_name="site_connectivity",
+        record_id=0,
+        action="bulk_delete",
+        current_user=current_user,
+        old_values={"items": old_values},
+        new_values={"deleted_ids": ids, "deleted_count": len(items)},
+    )
     db.commit()
     return {"message": "Selected site connectivity records deleted successfully"}
 
 
 @router.delete("/")
-def delete_all_site_connectivity(db: Session = Depends(get_db)):
+def delete_all_site_connectivity(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    deleted_count = db.query(func.count(SiteConnectivity.id)).scalar() or 0
     db.query(SiteConnectivity).delete(synchronize_session=False)
+    create_audit_log(
+        db,
+        table_name="site_connectivity",
+        record_id=0,
+        action="delete_all",
+        current_user=current_user,
+        new_values={"deleted_count": deleted_count},
+    )
     db.commit()
     return {"message": "All site connectivity records deleted successfully"}
 
@@ -370,6 +445,7 @@ def delete_all_site_connectivity(db: Session = Depends(get_db)):
 async def import_site_connectivity_excel(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     filename = (file.filename or "").lower()
     if not (filename.endswith(".xlsx") or filename.endswith(".xls")):
@@ -416,6 +492,19 @@ async def import_site_connectivity_excel(
         db.add(item)
         created += 1
 
+    db.commit()
+    create_audit_log(
+        db,
+        table_name="site_connectivity",
+        record_id=0,
+        action="import",
+        current_user=current_user,
+        new_values={
+            "filename": file.filename,
+            "created": created,
+            "updated": 0,
+        },
+    )
     db.commit()
 
     return {

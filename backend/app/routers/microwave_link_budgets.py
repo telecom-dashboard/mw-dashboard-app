@@ -11,11 +11,14 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.models.microwave_link_budget import MicrowaveLinkBudget
+from app.models.user import User
+from app.routers.auth import require_admin
 from app.schemas.microwave_link_budget import (
     MicrowaveLinkBudgetCreate,
     MicrowaveLinkBudgetRead,
     MicrowaveLinkBudgetUpdate,
 )
+from app.utils.audit import create_audit_log
 from app.utils.microwave_link_budget_column_map import MICROWAVE_LINK_BUDGET_COLUMN_MAP
 
 router = APIRouter(
@@ -307,9 +310,19 @@ def get_microwave_link_budget_summary(db: Session = Depends(get_db)):
 def create_microwave_link_budget(
     payload: MicrowaveLinkBudgetCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     item = MicrowaveLinkBudget(**payload.model_dump())
     db.add(item)
+    db.flush()
+    create_audit_log(
+        db,
+        table_name="microwave_link_budgets",
+        record_id=item.id,
+        action="create",
+        current_user=current_user,
+        new_values=MicrowaveLinkBudgetRead.model_validate(item).model_dump(),
+    )
     db.commit()
     db.refresh(item)
     return item
@@ -320,6 +333,7 @@ def update_microwave_link_budget(
     item_id: int,
     payload: MicrowaveLinkBudgetUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     item = (
         db.query(MicrowaveLinkBudget)
@@ -329,16 +343,29 @@ def update_microwave_link_budget(
     if not item:
         raise HTTPException(status_code=404, detail="Microwave link budget not found")
 
+    old_values = MicrowaveLinkBudgetRead.model_validate(item).model_dump()
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, key, value)
 
+    create_audit_log(
+        db,
+        table_name="microwave_link_budgets",
+        record_id=item.id,
+        action="update",
+        current_user=current_user,
+        old_values=old_values,
+        new_values=MicrowaveLinkBudgetRead.model_validate(item).model_dump(),
+    )
     db.commit()
     db.refresh(item)
     return item
 
 
 @router.delete("/delete-all")
-def delete_all_microwave_link_budgets(db: Session = Depends(get_db)):
+def delete_all_microwave_link_budgets(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     deleted_count = db.query(MicrowaveLinkBudget).count()
 
     if deleted_count == 0:
@@ -348,6 +375,14 @@ def delete_all_microwave_link_budgets(db: Session = Depends(get_db)):
         }
 
     db.query(MicrowaveLinkBudget).delete()
+    create_audit_log(
+        db,
+        table_name="microwave_link_budgets",
+        record_id=0,
+        action="delete_all",
+        current_user=current_user,
+        new_values={"deleted_count": deleted_count},
+    )
     db.commit()
 
     return {
@@ -360,6 +395,7 @@ def delete_all_microwave_link_budgets(db: Session = Depends(get_db)):
 def bulk_delete_microwave_link_budgets(
     ids: list[int] = Query(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     items = db.query(MicrowaveLinkBudget).filter(MicrowaveLinkBudget.id.in_(ids)).all()
 
@@ -371,6 +407,20 @@ def bulk_delete_microwave_link_budgets(
     for item in items:
         db.delete(item)
 
+    create_audit_log(
+        db,
+        table_name="microwave_link_budgets",
+        record_id=0,
+        action="bulk_delete",
+        current_user=current_user,
+        old_values={
+            "items": [
+                MicrowaveLinkBudgetRead.model_validate(item).model_dump()
+                for item in items
+            ]
+        },
+        new_values={"deleted_ids": ids, "deleted_count": deleted_count},
+    )
     db.commit()
     return {
         "message": "Microwave link budgets deleted successfully",
@@ -379,7 +429,11 @@ def bulk_delete_microwave_link_budgets(
 
 
 @router.delete("/{item_id}")
-def delete_microwave_link_budget(item_id: int, db: Session = Depends(get_db)):
+def delete_microwave_link_budget(
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     item = (
         db.query(MicrowaveLinkBudget)
         .filter(MicrowaveLinkBudget.id == item_id)
@@ -388,7 +442,16 @@ def delete_microwave_link_budget(item_id: int, db: Session = Depends(get_db)):
     if not item:
         raise HTTPException(status_code=404, detail="Microwave link budget not found")
 
+    old_values = MicrowaveLinkBudgetRead.model_validate(item).model_dump()
     db.delete(item)
+    create_audit_log(
+        db,
+        table_name="microwave_link_budgets",
+        record_id=item_id,
+        action="delete",
+        current_user=current_user,
+        old_values=old_values,
+    )
     db.commit()
     return {"message": "Microwave link budget deleted successfully"}
 
@@ -480,6 +543,7 @@ def download_microwave_link_budget_template():
 async def import_microwave_link_budgets_excel(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     if not file.filename.endswith((".xlsx", ".xls")):
         raise HTTPException(status_code=400, detail="Only Excel files are allowed")
@@ -559,6 +623,21 @@ async def import_microwave_link_budgets_excel(
             status_code=400,
             detail=f"Failed to import Excel file: {str(e)}",
         )
+
+    create_audit_log(
+        db,
+        table_name="microwave_link_budgets",
+        record_id=0,
+        action="import",
+        current_user=current_user,
+        new_values={
+            "filename": file.filename,
+            "created": created,
+            "updated": updated,
+            "errors": errors,
+        },
+    )
+    db.commit()
 
     return {
         "message": "Import finished",

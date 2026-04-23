@@ -61,6 +61,10 @@ function StandardDataTable({
             return comparableValue === normalizedFilter;
           }
 
+          if (filterMeta[column.key]?.type === "datetime") {
+            return comparableValue.startsWith(normalizeDateTimeFilterValue(filterValue));
+          }
+
           return comparableValue.includes(normalizedFilter);
         })
       ),
@@ -205,10 +209,20 @@ function StandardDataTable({
                             <option value="">All</option>
                             {(meta.options || []).map((option) => (
                               <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        ) : meta?.type === "datetime" ? (
+                          <input
+                            type="datetime-local"
+                            value={filterValue}
+                            onChange={(e) =>
+                              handleFilterChange(column.key, e.target.value)
+                            }
+                            className={filterControlClass}
+                            aria-label={`Filter ${column.label}`}
+                          />
                         ) : (
                           <input
                             value={filterValue}
@@ -354,6 +368,10 @@ function buildColumnFilterMeta(column, rows) {
     return { type: "none", options: [] };
   }
 
+  if (column.filterType === "datetime") {
+    return { type: "datetime", options: [] };
+  }
+
   const normalizedValues = Array.from(
     new Set(
       rows
@@ -406,7 +424,30 @@ function getComparableCellValue(row, column) {
     return rawValue ? "active" : "inactive";
   }
 
+  if (column.filterType === "datetime") {
+    return normalizeDateTimeFilterValue(rawValue);
+  }
+
   return normalizeFilterString(rawValue);
+}
+
+function normalizeDateTimeFilterValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value).trim().slice(0, 16);
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 function normalizeFilterString(value) {

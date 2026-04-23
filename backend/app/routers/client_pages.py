@@ -6,8 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.models.client_page import ClientPage
+from app.models.user import User
+from app.routers.auth import require_admin
 from app.models.microwave_link_budget import MicrowaveLinkBudget
 from app.schemas.client_page import ClientPageCreate, ClientPageRead, ClientPageUpdate
+from app.utils.audit import create_audit_log
 
 router = APIRouter(
     prefix="/client-pages",
@@ -139,7 +142,11 @@ def get_client_page(page_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=ClientPageRead)
-def create_client_page(payload: ClientPageCreate, db: Session = Depends(get_db)):
+def create_client_page(
+    payload: ClientPageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     validate_layout(payload.layout)
 
     exists = db.query(ClientPage).filter(ClientPage.slug == payload.slug).first()
@@ -155,6 +162,15 @@ def create_client_page(payload: ClientPageCreate, db: Session = Depends(get_db))
         is_published=payload.is_published,
     )
     db.add(item)
+    db.flush()
+    create_audit_log(
+        db,
+        table_name="client_pages",
+        record_id=item.id,
+        action="create",
+        current_user=current_user,
+        new_values=parse_page(item),
+    )
     db.commit()
     db.refresh(item)
 
@@ -174,11 +190,13 @@ def update_client_page(
     page_id: int,
     payload: ClientPageUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
     item = db.query(ClientPage).filter(ClientPage.id == page_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Client page not found")
 
+    old_values = parse_page(item)
     data = payload.model_dump(exclude_unset=True)
 
     if "slug" in data and data["slug"] != item.slug:
@@ -199,6 +217,15 @@ def update_client_page(
     if "is_published" in data:
         item.is_published = data["is_published"]
 
+    create_audit_log(
+        db,
+        table_name="client_pages",
+        record_id=item.id,
+        action="update",
+        current_user=current_user,
+        old_values=old_values,
+        new_values=parse_page(item),
+    )
     db.commit()
     db.refresh(item)
 
@@ -214,12 +241,25 @@ def update_client_page(
 
 
 @router.delete("/{page_id}")
-def delete_client_page(page_id: int, db: Session = Depends(get_db)):
+def delete_client_page(
+    page_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     item = db.query(ClientPage).filter(ClientPage.id == page_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Client page not found")
 
+    old_values = parse_page(item)
     db.delete(item)
+    create_audit_log(
+        db,
+        table_name="client_pages",
+        record_id=page_id,
+        action="delete",
+        current_user=current_user,
+        old_values=old_values,
+    )
     db.commit()
     return {"message": "Client page deleted successfully"}
 

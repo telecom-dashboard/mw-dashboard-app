@@ -6,11 +6,13 @@ from app.core.database import Base, engine
 from app.db import base  # noqa: F401
 from app.routers import (
     auth,
+    audit_logs,
     tools,
     microwave_link_budgets,
     client_pages,
     site_connectivity,
     link_level,
+    users,
 )
 
 API_PREFIX = "/api"
@@ -28,11 +30,13 @@ app.add_middleware(
 Base.metadata.create_all(bind=engine)
 
 app.include_router(auth.router, prefix=API_PREFIX)
+app.include_router(audit_logs.router, prefix=API_PREFIX)
 app.include_router(tools.router, prefix=API_PREFIX)
 app.include_router(microwave_link_budgets.router, prefix=API_PREFIX)
 app.include_router(client_pages.router, prefix=API_PREFIX)
 app.include_router(site_connectivity.router, prefix=API_PREFIX)
 app.include_router(link_level.router, prefix=API_PREFIX)
+app.include_router(users.router, prefix=API_PREFIX)
 
 
 @app.get("/")

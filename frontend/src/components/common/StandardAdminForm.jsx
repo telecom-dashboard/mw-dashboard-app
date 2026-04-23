@@ -58,13 +58,18 @@ export function StandardFormToggleField({
   name,
   checked,
   onChange,
+  disabled = false,
   activeLabel = "Active",
   inactiveLabel = "Inactive",
   className = "",
 }) {
   return (
     <div className={`flex items-end ${className}`.trim()}>
-      <label className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+      <label
+        className={`flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 ${
+          disabled ? "bg-slate-100" : "bg-white"
+        }`}
+      >
         <div>
           <div className="text-sm font-semibold text-slate-900">{label}</div>
           <div className="text-xs text-slate-500">{description}</div>
@@ -86,6 +91,7 @@ export function StandardFormToggleField({
             name={name}
             checked={checked}
             onChange={onChange}
+            disabled={disabled}
             className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
           />
         </div>

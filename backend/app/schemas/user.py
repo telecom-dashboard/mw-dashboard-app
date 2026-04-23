@@ -14,6 +14,15 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: str = "client"
+    is_active: bool = True
+
+
+class UserUpdate(BaseModel):
+    username: str
+    email: EmailStr
+    role: str = "client"
+    is_active: bool = True
+    password: str | None = None
 
 
 class UserOut(UserBase):
