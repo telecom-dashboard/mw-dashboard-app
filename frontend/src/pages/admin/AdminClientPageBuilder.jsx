@@ -39,7 +39,10 @@ function AdminClientPageBuilder() {
   const [form, setForm] = useState(emptyConfig);
   const [metadata, setMetadata] = useState({ tables: [], blocked_tables: [] });
   const [hybridPages, setHybridPages] = useState([]);
+  const [hybridPagesLoading, setHybridPagesLoading] = useState(true);
+  const [hybridPagesError, setHybridPagesError] = useState("");
   const [updatingHybridKey, setUpdatingHybridKey] = useState("");
+  const [pendingHybridChange, setPendingHybridChange] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -49,8 +52,19 @@ function AdminClientPageBuilder() {
   };
 
   const fetchHybridPages = async () => {
-    const data = await getHybridPagesApi();
-    setHybridPages(data || []);
+    try {
+      setHybridPagesLoading(true);
+      setHybridPagesError("");
+      const data = await getHybridPagesApi();
+      setHybridPages(data || []);
+    } catch (error) {
+      setHybridPages([]);
+      setHybridPagesError(
+        error?.response?.data?.detail || "Failed to load hybrid page access"
+      );
+    } finally {
+      setHybridPagesLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -211,16 +225,15 @@ function AdminClientPageBuilder() {
     }
   };
 
+  const getPreferredJoinColumn = (columns) =>
+    columns.find((column) => column.name === "link_id") ||
+    columns.find((column) => column.is_primary) ||
+    columns[0];
+
   const addJoin = () => {
-    const targetTable = tables.find((table) => table.name !== form.source_table);
-    const sourceLinkColumn =
-      sourceTable?.columns.find((column) => column.name === "link_id") ||
-      sourceTable?.columns.find((column) => column.is_primary) ||
-      sourceTable?.columns[0];
-    const targetLinkColumn =
-      targetTable?.columns.find((column) => column.name === "link_id") ||
-      targetTable?.columns.find((column) => column.is_primary) ||
-      targetTable?.columns[0];
+    const targetTable = getJoinableTables(-1)[0];
+    const sourceLinkColumn = getPreferredJoinColumn(sourceTable?.columns || []);
+    const targetLinkColumn = getPreferredJoinColumn(targetTable?.columns || []);
 
     if (!targetTable || !sourceLinkColumn || !targetLinkColumn) return;
 
@@ -237,20 +250,27 @@ function AdminClientPageBuilder() {
 
   const updateJoin = (index, key, value) => {
     if (key === "table") {
+      const previousTable = form.layout.joins[index]?.table;
       const nextTableColumns = getColumnsForTable(value);
-      const nextRightColumn =
-        nextTableColumns.find((column) => column.name === "link_id") ||
-        nextTableColumns.find((column) => column.is_primary) ||
-        nextTableColumns[0];
+      const nextRightColumn = getPreferredJoinColumn(nextTableColumns);
 
-      handleLayoutChange(
-        "joins",
-        form.layout.joins.map((join, joinIndex) =>
-          joinIndex === index
-            ? { ...join, table: value, right: nextRightColumn?.key || join.right }
-            : join
-        )
-      );
+      setForm((prev) => ({
+        ...prev,
+        layout: {
+          ...prev.layout,
+          joins: normalizeJoinLeftColumns(prev.layout.joins.map((join, joinIndex) =>
+            joinIndex === index
+              ? { ...join, table: value, right: nextRightColumn?.key || join.right }
+              : join
+          )),
+          columns: previousTable
+            ? prev.layout.columns.filter((col) => col.table !== previousTable)
+            : prev.layout.columns,
+          filters: previousTable
+            ? prev.layout.filters.filter((filter) => filter.table !== previousTable)
+            : prev.layout.filters,
+        },
+      }));
       return;
     }
 
@@ -269,7 +289,9 @@ function AdminClientPageBuilder() {
       ...prev,
       layout: {
         ...prev.layout,
-        joins: prev.layout.joins.filter((_, joinIndex) => joinIndex !== index),
+        joins: normalizeJoinLeftColumns(
+          prev.layout.joins.filter((_, joinIndex) => joinIndex !== index)
+        ),
         columns: removedTable
           ? prev.layout.columns.filter((col) => col.table !== removedTable)
           : prev.layout.columns,
@@ -342,8 +364,63 @@ function AdminClientPageBuilder() {
     }
   };
 
+  const requestHybridPageToggle = (page, isEnabled) => {
+    setPendingHybridChange({
+      key: page.key,
+      title: page.title,
+      isEnabled,
+    });
+  };
+
+  const confirmHybridPageToggle = async () => {
+    if (!pendingHybridChange) return;
+
+    const { key, isEnabled } = pendingHybridChange;
+    setPendingHybridChange(null);
+    await toggleHybridPage(key, isEnabled);
+  };
+
+  const cancelHybridPageToggle = () => {
+    setPendingHybridChange(null);
+  };
+
   const getColumnsForTable = (tableName) =>
     tables.find((table) => table.name === tableName)?.columns || [];
+
+  const getTableLabel = (tableName) =>
+    tables.find((table) => table.name === tableName)?.label || tableName;
+
+  const formatColumnLabel = (column) =>
+    `${getTableLabel(column.table)} / ${column.label}`;
+
+  const getLeftJoinColumns = (joinIndex) => {
+    const availableTableNames = [
+      form.source_table,
+      ...form.layout.joins.slice(0, joinIndex).map((join) => join.table),
+    ];
+
+    return availableTableNames.flatMap((tableName) => getColumnsForTable(tableName));
+  };
+
+  const normalizeJoinLeftColumns = (joins) =>
+    joins.map((join, joinIndex) => {
+      const availableTableNames = [
+        form.source_table,
+        ...joins.slice(0, joinIndex).map((item) => item.table),
+      ];
+      const availableColumns = availableTableNames.flatMap((tableName) =>
+        getColumnsForTable(tableName)
+      );
+      const currentLeftColumn = availableColumns.find(
+        (column) => column.key === join.left
+      );
+      const fallbackLeftColumn = getPreferredJoinColumn(availableColumns);
+
+      return {
+        ...join,
+        left: currentLeftColumn?.key || fallbackLeftColumn?.key || join.left,
+      };
+    });
 
   const getJoinableTables = (currentJoinIndex) => {
     const otherJoinedTables = form.layout.joins
@@ -384,7 +461,15 @@ function AdminClientPageBuilder() {
           </p>
         </div>
 
-        {hybridPages.length === 0 ? (
+        {hybridPagesLoading ? (
+          <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-500">
+            Loading hybrid page access...
+          </div>
+        ) : hybridPagesError ? (
+          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+            {hybridPagesError}
+          </div>
+        ) : hybridPages.length === 0 ? (
           <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-500">
             No hybrid pages are registered.
           </div>
@@ -412,7 +497,7 @@ function AdminClientPageBuilder() {
                     type="checkbox"
                     checked={page.is_enabled}
                     disabled={updatingHybridKey === page.key}
-                    onChange={(e) => toggleHybridPage(page.key, e.target.checked)}
+                    onChange={(e) => requestHybridPageToggle(page, e.target.checked)}
                   />
                   Client access
                 </label>
@@ -421,6 +506,35 @@ function AdminClientPageBuilder() {
           </div>
         )}
       </div>
+
+      {pendingHybridChange && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+          <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-4 shadow-xl">
+            <h2 className="text-sm font-bold text-slate-900">Confirm client access</h2>
+            <p className="mt-2 text-center text-base font-medium text-slate-700">
+              {pendingHybridChange.isEnabled
+                ? "Are you sure to show this page to client"
+                : "Are you sure not to show this page to client"}
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={confirmHybridPageToggle}
+                className="rounded-md border border-sky-600 bg-sky-600 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-700"
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                onClick={cancelHybridPageToggle}
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {message && (
         <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
@@ -534,9 +648,14 @@ function AdminClientPageBuilder() {
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Table Joins</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm font-bold text-slate-900">Multi-Table Joins</h2>
+                  <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                    {form.layout.joins.length} joined
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500">
-                  Add related operational tables before selecting their columns.
+                  Add multiple related operational tables before selecting their columns.
                 </p>
               </div>
 
@@ -546,80 +665,99 @@ function AdminClientPageBuilder() {
                 disabled={getJoinableTables(-1).length === 0}
                 className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Add Join
+                Add Table Join
               </button>
             </div>
 
             {form.layout.joins.length === 0 ? (
               <div className="rounded-md bg-slate-50 p-3 text-xs text-slate-500">
-                No joins configured. Columns will come from the source table only.
+                No joins configured. Add a table join to combine columns from multiple tables.
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {form.layout.joins.map((join, index) => {
                   const joinableTables = getJoinableTables(index);
                   const joinTableColumns = getColumnsForTable(join.table);
-                  const sourceColumns = sourceTable?.columns || [];
-                  const leftColumns = [...sourceColumns, ...joinTableColumns];
-                  const rightColumns = [...sourceColumns, ...joinTableColumns];
+                  const leftColumns = getLeftJoinColumns(index);
 
                   return (
                     <div
                       key={`${join.table}-${index}`}
-                      className="grid gap-2 rounded-md border border-slate-200 p-3 xl:grid-cols-[150px_120px_minmax(0,1fr)_minmax(0,1fr)_auto]"
+                      className="rounded-md border border-slate-200 p-3"
                     >
-                      <select
-                        value={join.table}
-                        onChange={(e) => updateJoin(index, "table", e.target.value)}
-                        className={inputClass}
-                      >
-                        {joinableTables.map((table) => (
-                          <option key={table.name} value={table.name}>
-                            {table.label}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <div className="text-xs font-bold text-slate-800">
+                            Join {index + 1}: {getTableLabel(join.table)}
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            Match an existing table column to a column on the joined table.
+                          </div>
+                        </div>
 
-                      <select
-                        value={join.type || "left"}
-                        onChange={(e) => updateJoin(index, "type", e.target.value)}
-                        className={inputClass}
-                      >
-                        <option value="left">Left join</option>
-                        <option value="inner">Inner join</option>
-                      </select>
+                        <button
+                          type="button"
+                          onClick={() => removeJoin(index)}
+                          className="rounded-md border border-red-300 bg-white px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                        >
+                          Remove
+                        </button>
+                      </div>
 
-                      <select
-                        value={join.left}
-                        onChange={(e) => updateJoin(index, "left", e.target.value)}
-                        className={inputClass}
-                      >
-                        {leftColumns.map((column) => (
-                          <option key={column.key} value={column.key}>
-                            {column.key}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_130px_minmax(0,1fr)_minmax(0,1fr)]">
+                        <Field label="Join table">
+                          <select
+                            value={join.table}
+                            onChange={(e) => updateJoin(index, "table", e.target.value)}
+                            className={inputClass}
+                          >
+                            {joinableTables.map((table) => (
+                              <option key={table.name} value={table.name}>
+                                {table.label}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
 
-                      <select
-                        value={join.right}
-                        onChange={(e) => updateJoin(index, "right", e.target.value)}
-                        className={inputClass}
-                      >
-                        {rightColumns.map((column) => (
-                          <option key={column.key} value={column.key}>
-                            {column.key}
-                          </option>
-                        ))}
-                      </select>
+                        <Field label="Join type">
+                          <select
+                            value={join.type || "left"}
+                            onChange={(e) => updateJoin(index, "type", e.target.value)}
+                            className={inputClass}
+                          >
+                            <option value="left">Left join</option>
+                            <option value="inner">Inner join</option>
+                          </select>
+                        </Field>
 
-                      <button
-                        type="button"
-                        onClick={() => removeJoin(index)}
-                        className="rounded-md border border-red-300 bg-white px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                      >
-                        Remove
-                      </button>
+                        <Field label="Existing table column">
+                          <select
+                            value={join.left}
+                            onChange={(e) => updateJoin(index, "left", e.target.value)}
+                            className={inputClass}
+                          >
+                            {leftColumns.map((column) => (
+                              <option key={column.key} value={column.key}>
+                                {formatColumnLabel(column)}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+
+                        <Field label="Joined table column">
+                          <select
+                            value={join.right}
+                            onChange={(e) => updateJoin(index, "right", e.target.value)}
+                            className={inputClass}
+                          >
+                            {joinTableColumns.map((column) => (
+                              <option key={column.key} value={column.key}>
+                                {formatColumnLabel(column)}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                      </div>
                     </div>
                   );
                 })}

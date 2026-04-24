@@ -3,8 +3,33 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.hybrid_page_access import HybridPageAccess
+from app.models.user import User
+from app.routers.auth import normalize_role, require_client_or_admin
 
 router = APIRouter(prefix="/link-level", tags=["Link Level"])
+
+
+def require_link_level_access(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_client_or_admin),
+):
+    if normalize_role(current_user.role) == "admin":
+        return current_user
+
+    enabled = (
+        db.query(HybridPageAccess)
+        .filter(
+            HybridPageAccess.page_key == "link-level",
+            HybridPageAccess.is_enabled.is_(True),
+        )
+        .first()
+    )
+
+    if not enabled:
+        raise HTTPException(status_code=403, detail="Link level client access is disabled")
+
+    return current_user
 
 
 FLOW_SQL = text(
@@ -138,7 +163,10 @@ def build_login_url(ip: str | None, protocol: str | None) -> str | None:
 def get_link_level(
     search: str = Query(default=""),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_link_level_access),
 ):
+    del current_user
+
     rows = db.execute(
         FLOW_SQL,
         {
@@ -188,7 +216,13 @@ def get_link_level(
 
 
 @router.get("/view/{link_id}")
-def get_link_level_view(link_id: str, db: Session = Depends(get_db)):
+def get_link_level_view(
+    link_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_link_level_access),
+):
+    del current_user
+
     row = db.execute(VIEW_SQL, {"link_id": link_id}).mappings().first()
 
     if not row:

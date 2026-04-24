@@ -148,7 +148,12 @@ def validate_layout(layout: dict, source_table: str | None = None):
 
 
 @router.get("/")
-def get_client_pages(db: Session = Depends(get_db)):
+def get_client_pages(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    del current_user
+
     items = db.query(ClientPage).order_by(desc(ClientPage.updated_at)).all()
     return [parse_page(item) for item in items]
 
@@ -211,45 +216,6 @@ def get_hybrid_pages(
     ]
 
 
-@router.put("/hybrid-pages/{page_key}")
-def update_hybrid_page_access(
-    page_key: str,
-    payload: dict,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
-):
-    if page_key not in HYBRID_PAGE_REGISTRY:
-        raise HTTPException(status_code=404, detail="Hybrid page not found")
-
-    item = (
-        db.query(HybridPageAccess)
-        .filter(HybridPageAccess.page_key == page_key)
-        .first()
-    )
-
-    if not item:
-        item = HybridPageAccess(page_key=page_key)
-        db.add(item)
-
-    old_values = parse_hybrid_access(item, page_key)
-    item.is_enabled = bool(payload.get("is_enabled", False))
-    db.flush()
-
-    create_audit_log(
-        db,
-        table_name="hybrid_page_access",
-        record_id=item.id,
-        action="update",
-        current_user=current_user,
-        old_values=old_values,
-        new_values=parse_hybrid_access(item, page_key),
-    )
-    db.commit()
-    db.refresh(item)
-
-    return parse_hybrid_access(item, page_key)
-
-
 @router.get("/hybrid-pages/published/nav")
 def get_published_hybrid_pages_for_nav(
     db: Session = Depends(get_db),
@@ -301,6 +267,45 @@ def get_published_hybrid_page(
     return parse_hybrid_access(item, page_key)
 
 
+@router.put("/hybrid-pages/{page_key}")
+def update_hybrid_page_access(
+    page_key: str,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    if page_key not in HYBRID_PAGE_REGISTRY:
+        raise HTTPException(status_code=404, detail="Hybrid page not found")
+
+    item = (
+        db.query(HybridPageAccess)
+        .filter(HybridPageAccess.page_key == page_key)
+        .first()
+    )
+
+    if not item:
+        item = HybridPageAccess(page_key=page_key)
+        db.add(item)
+
+    old_values = parse_hybrid_access(item, page_key)
+    item.is_enabled = bool(payload.get("is_enabled", False))
+    db.flush()
+
+    create_audit_log(
+        db,
+        table_name="hybrid_page_access",
+        record_id=item.id,
+        action="update",
+        current_user=current_user,
+        old_values=old_values,
+        new_values=parse_hybrid_access(item, page_key),
+    )
+    db.commit()
+    db.refresh(item)
+
+    return parse_hybrid_access(item, page_key)
+
+
 def parse_hybrid_access(item: HybridPageAccess | None, page_key: str) -> dict:
     config = HYBRID_PAGE_REGISTRY[page_key]
     return {
@@ -310,7 +315,13 @@ def parse_hybrid_access(item: HybridPageAccess | None, page_key: str) -> dict:
 
 
 @router.get("/{page_id}")
-def get_client_page(page_id: int, db: Session = Depends(get_db)):
+def get_client_page(
+    page_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    del current_user
+
     item = db.query(ClientPage).filter(ClientPage.id == page_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Client page not found")
@@ -448,7 +459,13 @@ def delete_client_page(
 
 
 @router.get("/view/{slug}")
-def get_public_client_page(slug: str, db: Session = Depends(get_db)):
+def get_public_client_page(
+    slug: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_client_or_admin),
+):
+    del current_user
+
     item = (
         db.query(ClientPage)
         .filter(ClientPage.slug == slug, ClientPage.is_published.is_(True))
@@ -471,7 +488,10 @@ def get_public_client_page_data(
     region: str | None = None,
     status: str | None = None,
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_client_or_admin),
 ):
+    del current_user
+
     item = (
         db.query(ClientPage)
         .filter(ClientPage.slug == slug, ClientPage.is_published.is_(True))
@@ -572,7 +592,12 @@ def get_public_client_page_data(
     }
 
 @router.get("/published/nav")
-def get_published_client_pages_for_nav(db: Session = Depends(get_db)):
+def get_published_client_pages_for_nav(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_client_or_admin),
+):
+    del current_user
+
     items = (
         db.query(ClientPage)
         .filter(ClientPage.is_published.is_(True))

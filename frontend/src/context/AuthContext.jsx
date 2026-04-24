@@ -3,10 +3,19 @@ import api from "../api/axios";
 
 const AuthContext = createContext(null);
 
+const normalizeUser = (value) => {
+  if (!value) return null;
+
+  return {
+    ...value,
+    role: typeof value.role === "string" ? value.role.trim().toLowerCase() : value.role,
+  };
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem("user");
-    return savedUser ? JSON.parse(savedUser) : null;
+    return savedUser ? normalizeUser(JSON.parse(savedUser)) : null;
   });
 
   const [loading, setLoading] = useState(true);
@@ -22,8 +31,9 @@ export function AuthProvider({ children }) {
 
       try {
         const response = await api.get("/auth/me");
-        setUser(response.data);
-        localStorage.setItem("user", JSON.stringify(response.data));
+        const currentUser = normalizeUser(response.data);
+        setUser(currentUser);
+        localStorage.setItem("user", JSON.stringify(currentUser));
       } catch (error) {
         console.error("Init auth failed:", error?.response?.data || error);
         localStorage.removeItem("access_token");
@@ -59,7 +69,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem("token_type", tokenData.token_type || "bearer");
 
     const meResponse = await api.get("/auth/me");
-    const currentUser = meResponse.data;
+    const currentUser = normalizeUser(meResponse.data);
 
     setUser(currentUser);
     localStorage.setItem("user", JSON.stringify(currentUser));

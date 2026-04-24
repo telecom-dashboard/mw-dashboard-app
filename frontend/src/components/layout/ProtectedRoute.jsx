@@ -4,6 +4,8 @@ import { useAuth } from "../../context/AuthContext";
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading, isAuthenticated } = useAuth();
+  const userRole =
+    typeof user?.role === "string" ? user.role.trim().toLowerCase() : user?.role;
 
   if (loading) {
     return (
@@ -25,7 +27,7 @@ function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sky-50 via-white to-cyan-50 px-4">
         <div className="w-full max-w-md rounded-3xl border border-sky-100 bg-white p-8 text-center shadow-sm">

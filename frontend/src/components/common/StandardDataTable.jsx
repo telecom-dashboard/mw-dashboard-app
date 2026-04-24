@@ -355,7 +355,7 @@ const filterSelectHeaderClass =
   "sticky left-0 top-[33px] z-20 border-b border-r border-slate-300 bg-[#f8fafc] px-2 py-1.5";
 
 const cellClass =
-  "whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 align-middle text-[11px] text-slate-700 last:border-r-0";
+  "whitespace-nowrap border-b border-r border-slate-200 px-3 py-2 text-center align-middle text-[11px] text-slate-700 last:border-r-0";
 
 const selectCellClass =
   "sticky left-0 z-10 border-b border-r border-slate-300 bg-inherit px-3 py-2 align-middle";

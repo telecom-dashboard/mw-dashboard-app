@@ -929,12 +929,7 @@ export default function AdminLinkLevelPage() {
 
   return (
     <div className="h-[calc(100vh-64px)] w-full overflow-hidden bg-slate-50">
-      <div
-        className="relative h-full w-full"
-        onClick={() => {
-          if (menu.visible) closeMenu();
-        }}
-      >
+      <div className="relative h-full w-full">
         <PanelToggles
           showSearchCard={showSearchCard}
           showLegendCard={showLegendCard}

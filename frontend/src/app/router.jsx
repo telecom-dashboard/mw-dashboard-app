@@ -18,6 +18,7 @@ import AdminUsersPage from "../pages/admin/AdminUsersPage";
 import AdminAuditLogsPage from "../pages/admin/AdminAuditLogsPage";
 import AdminClientPageBuilder from "../pages/admin/AdminClientPageBuilder";
 
+import ClientHomePage from "../pages/client/ClientHomePage";
 import ClientDynamicPage from "../pages/client/ClientDynamicPage";
 import ClientHybridPage from "../pages/client/ClientHybridPage";
 
@@ -70,6 +71,7 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
+      { index: true, element: <ClientHomePage /> },
       { path: "pages/:slug", element: <ClientDynamicPage /> },
       { path: "hybrid/:pageKey", element: <ClientHybridPage /> },
     ],

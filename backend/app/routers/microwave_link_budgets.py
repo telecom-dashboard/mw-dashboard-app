@@ -252,7 +252,10 @@ def get_microwave_link_budgets(
     sort_by: str = "link_id",
     sort_order: str = "asc",
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
+    del current_user
+
     query = build_filtered_query(db, search, status, vendor, active, sort_by, sort_order)
 
     total = query.count()
@@ -271,7 +274,12 @@ def get_microwave_link_budgets(
 
 
 @router.get("/summary")
-def get_microwave_link_budget_summary(db: Session = Depends(get_db)):
+def get_microwave_link_budget_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    del current_user
+
     total_links = db.query(func.count(MicrowaveLinkBudget.id)).scalar() or 0
     active_links = (
         db.query(func.count(MicrowaveLinkBudget.id))
@@ -465,7 +473,10 @@ def export_microwave_link_budgets_excel(
     sort_by: str = "link_id",
     sort_order: str = "asc",
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
+    del current_user
+
     query = build_filtered_query(db, search, status, vendor, active, sort_by, sort_order)
     items = query.all()
 
@@ -490,7 +501,10 @@ def export_microwave_link_budgets_excel(
 def export_selected_microwave_link_budgets_excel(
     ids: list[int] = Query(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
+    del current_user
+
     items = (
         db.query(MicrowaveLinkBudget)
         .filter(MicrowaveLinkBudget.id.in_(ids))
@@ -521,7 +535,11 @@ def export_selected_microwave_link_budgets_excel(
 
 
 @router.get("/template/excel")
-def download_microwave_link_budget_template():
+def download_microwave_link_budget_template(
+    current_user: User = Depends(require_admin),
+):
+    del current_user
+
     df = pd.DataFrame(columns=list(MICROWAVE_LINK_BUDGET_COLUMN_MAP.keys()))
 
     output = io.BytesIO()

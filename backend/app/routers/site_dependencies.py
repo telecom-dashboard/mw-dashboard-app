@@ -186,7 +186,10 @@ def get_site_dependencies(
     sort_by: str = "site_id",
     sort_order: str = "asc",
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
+    del current_user
+
     query = build_filtered_query(db, search, protection, sort_by, sort_order)
     total = query.count()
     items = query.offset((page - 1) * page_size).limit(page_size).all()
@@ -204,7 +207,12 @@ def get_site_dependencies(
 
 
 @router.get("/summary")
-def get_site_dependency_summary(db: Session = Depends(get_db)):
+def get_site_dependency_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    del current_user
+
     total = db.query(func.count(SiteDependency.id)).scalar() or 0
     protected = (
         db.query(func.count(SiteDependency.id))
@@ -235,7 +243,10 @@ def export_site_dependencies_excel(
     sort_by: str = "site_id",
     sort_order: str = "asc",
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
+    del current_user
+
     items = build_filtered_query(
         db,
         search=search,
@@ -250,7 +261,10 @@ def export_site_dependencies_excel(
 def export_selected_site_dependencies_excel(
     ids: list[int] = Query(...),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
+    del current_user
+
     items = (
         db.query(SiteDependency)
         .filter(SiteDependency.id.in_(ids))

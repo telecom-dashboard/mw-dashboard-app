@@ -19,10 +19,16 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
+def normalize_role(role: str | None) -> str:
+    return role.strip().lower() if isinstance(role, str) else ""
+
+
 @router.post("/register", response_model=UserOut)
 def register_user(payload: UserCreate, db: Session = Depends(get_db)):
-    if payload.role not in {"admin", "client"}:
-        raise HTTPException(status_code=400, detail="Role must be admin or client")
+    role = normalize_role(payload.role)
+    if role and role != "client":
+        raise HTTPException(status_code=400, detail="Public registration can only create client users")
+    role = "client"
 
     existing_user = db.execute(
         select(User).where(
@@ -37,7 +43,7 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)):
         username=payload.username,
         email=payload.email,
         hashed_password=get_password_hash(payload.password),
-        role=payload.role,
+        role=role,
         is_active=True,
     )
     db.add(user)
@@ -64,7 +70,7 @@ def login(
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Inactive user")
 
-    access_token = create_access_token(subject=user.username, role=user.role)
+    access_token = create_access_token(subject=user.username, role=normalize_role(user.role))
 
     return {
         "access_token": access_token,
@@ -98,13 +104,13 @@ def get_current_user(
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != "admin":
+    if normalize_role(current_user.role) != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
 
 def require_client_or_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role not in {"admin", "client"}:
+    if normalize_role(current_user.role) not in {"admin", "client"}:
         raise HTTPException(status_code=403, detail="Access denied")
     return current_user
 

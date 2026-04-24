@@ -68,8 +68,10 @@ function LoginPage() {
     try {
       setLoading(true);
       const user = await login(username, password);
+      const role =
+        typeof user?.role === "string" ? user.role.trim().toLowerCase() : user?.role;
 
-      if (user.role === "admin") {
+      if (role === "admin") {
         navigate("/admin");
       } else {
         navigate("/client");

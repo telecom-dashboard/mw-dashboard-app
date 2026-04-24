@@ -56,6 +56,9 @@ function LinkLevelContextMenu({
     <div
       className="fixed z-[80] w-[280px] overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-[0_24px_60px_rgba(15,23,42,0.20)] backdrop-blur-md"
       style={{ left: position.x, top: position.y }}
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.preventDefault()}
     >
       <div
         className="cursor-move border-b border-slate-200 bg-gradient-to-r from-slate-50 via-white to-sky-50 px-3 py-2.5"

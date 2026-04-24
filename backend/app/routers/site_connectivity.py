@@ -114,7 +114,12 @@ def build_base_query(
 
 
 @router.get("/category-options")
-def get_site_connectivity_category_options(db: Session = Depends(get_db)):
+def get_site_connectivity_category_options(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    del current_user
+
     rows = (
         db.query(SiteConnectivity.category_ne)
         .filter(
@@ -133,7 +138,10 @@ def get_site_connectivity_category_options(db: Session = Depends(get_db)):
 def site_connectivity_summary(
     category: str = Query(default=""),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
+    del current_user
+
     base_query = db.query(SiteConnectivity)
 
     if category and category.strip().lower() != "all":
@@ -179,7 +187,10 @@ def list_site_connectivity(
     sort_by: str = Query(default="id"),
     sort_order: str = Query(default="desc"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
+    del current_user
+
     query = build_base_query(db, search, category)
     total = query.with_entities(func.count(SiteConnectivity.id)).scalar() or 0
 
@@ -425,7 +436,11 @@ async def import_site_connectivity_excel(
 
 
 @router.get("/export/template")
-def export_site_connectivity_template():
+def export_site_connectivity_template(
+    current_user: User = Depends(require_admin),
+):
+    del current_user
+
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Site Connectivity Template"
@@ -461,7 +476,10 @@ def export_site_connectivity_excel(
     search: str = Query(default=""),
     category: str = Query(default=""),
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
+    del current_user
+
     query = build_base_query(db, search, category)
     rows = query.order_by(desc(SiteConnectivity.id)).all()
 
@@ -517,7 +535,10 @@ def export_site_connectivity_excel(
 def export_selected_site_connectivity_excel(
     payload: dict[str, Any],
     db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
 ):
+    del current_user
+
     ids = payload.get("ids") or []
     if not ids:
         raise HTTPException(status_code=400, detail="No selected IDs provided")

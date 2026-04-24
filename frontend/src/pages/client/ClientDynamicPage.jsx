@@ -742,6 +742,10 @@ function formatCell(value, key) {
     return value ? "Active" : "Inactive";
   }
 
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
   return String(value);
 }
 
