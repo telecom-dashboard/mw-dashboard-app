@@ -45,6 +45,8 @@ function AdminClientPageBuilder() {
   const [pendingHybridChange, setPendingHybridChange] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [draggedField, setDraggedField] = useState(null);
+  const [draggedFilterKey, setDraggedFilterKey] = useState("");
 
   const fetchPages = async () => {
     const data = await getClientPagesApi();
@@ -139,24 +141,53 @@ function AdminClientPageBuilder() {
     }));
   };
 
+  const buildColumnFromField = (field) => ({
+    key: field.key,
+    label: field.label,
+    table: field.table,
+    column: field.name,
+    visible: true,
+    width: 140,
+  });
+
+  const buildFilterFromColumn = (column) => ({
+    key: column.key,
+    label: column.label,
+    table: column.table,
+    column: column.column,
+    type: "select",
+    enabled: true,
+  });
+
   const addColumn = (field) => {
     setForm((prev) => ({
       ...prev,
       layout: {
         ...prev.layout,
-        columns: [
-          ...prev.layout.columns,
-          {
-            key: field.key,
-            label: field.label,
-            table: field.table,
-            column: field.name,
-            visible: true,
-            width: 140,
-          },
-        ],
+        columns: [...prev.layout.columns, buildColumnFromField(field)],
       },
     }));
+  };
+
+  const addFieldAsFilter = (field) => {
+    setForm((prev) => {
+      const existingColumn = prev.layout.columns.find((col) => col.key === field.key);
+      const column = existingColumn || buildColumnFromField(field);
+      const hasFilter = prev.layout.filters.some((filter) => filter.key === column.key);
+
+      return {
+        ...prev,
+        layout: {
+          ...prev.layout,
+          columns: existingColumn
+            ? prev.layout.columns
+            : [...prev.layout.columns, column],
+          filters: hasFilter
+            ? prev.layout.filters
+            : [...prev.layout.filters, buildFilterFromColumn(column)],
+        },
+      };
+    });
   };
 
   const removeColumn = (key) => {
@@ -202,27 +233,63 @@ function AdminClientPageBuilder() {
     );
   };
 
-  const toggleFilter = (field) => {
-    const exists = form.layout.filters.find((f) => f.key === field.key);
+  const sortFiltersByColumns = (filters, columns) => {
+    const columnOrder = new Map(columns.map((column, index) => [column.key, index]));
+
+    return [...filters].sort(
+      (left, right) =>
+        (columnOrder.get(left.key) ?? Number.MAX_SAFE_INTEGER) -
+        (columnOrder.get(right.key) ?? Number.MAX_SAFE_INTEGER)
+    );
+  };
+
+  const moveColumnByKey = (fromKey, toKey) => {
+    if (!fromKey || fromKey === toKey) return;
+
+    setForm((prev) => {
+      const fromIndex = prev.layout.columns.findIndex((col) => col.key === fromKey);
+      const toIndex = prev.layout.columns.findIndex((col) => col.key === toKey);
+
+      if (fromIndex < 0 || toIndex < 0) return prev;
+
+      const nextColumns = [...prev.layout.columns];
+      const [movedColumn] = nextColumns.splice(fromIndex, 1);
+      nextColumns.splice(toIndex, 0, movedColumn);
+
+      return {
+        ...prev,
+        layout: {
+          ...prev.layout,
+          columns: nextColumns,
+          filters: sortFiltersByColumns(prev.layout.filters, nextColumns),
+        },
+      };
+    });
+  };
+
+  const toggleFilter = (column) => {
+    const exists = form.layout.filters.find((f) => f.key === column.key);
 
     if (exists) {
       handleLayoutChange(
         "filters",
-        form.layout.filters.filter((f) => f.key !== field.key)
+        form.layout.filters.filter((f) => f.key !== column.key)
       );
     } else {
       handleLayoutChange("filters", [
         ...form.layout.filters,
-        {
-          key: field.key,
-          label: field.label,
-          table: field.table,
-          column: field.column,
-          type: "select",
-          enabled: true,
-        },
+        buildFilterFromColumn(column),
       ]);
     }
+  };
+
+  const handleFilterDrop = () => {
+    if (draggedField) {
+      addFieldAsFilter(draggedField);
+    }
+
+    setDraggedField(null);
+    setDraggedFilterKey("");
   };
 
   const getPreferredJoinColumn = (columns) =>
@@ -805,8 +872,14 @@ function AdminClientPageBuilder() {
                           <button
                             key={field.key}
                             type="button"
+                            draggable
+                            onDragStart={(event) => {
+                              setDraggedField(field);
+                              event.dataTransfer.effectAllowed = "copy";
+                            }}
+                            onDragEnd={() => setDraggedField(null)}
                             onClick={() => addColumn(field)}
-                            className="min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-sky-200 hover:bg-sky-50"
+                            className="min-w-0 cursor-grab rounded-md border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-sky-200 hover:bg-sky-50 active:cursor-grabbing"
                           >
                             <div className="truncate text-xs font-semibold text-slate-700">
                               {field.label}
@@ -824,30 +897,97 @@ function AdminClientPageBuilder() {
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 text-sm font-bold text-slate-900">Enabled Filters</h2>
+              <div className="mb-3">
+                <h2 className="text-sm font-bold text-slate-900">Enabled Filters</h2>
+                <p className="text-xs text-slate-500">
+                  Drag fields here to enable filters, then drag columns to reorder.
+                </p>
+              </div>
 
-              <div className="grid gap-2 sm:grid-cols-2">
-                {form.layout.columns.map((col) => {
-                  const active = form.layout.filters.some((f) => f.key === col.key);
-                  return (
-                    <button
-                      key={col.key}
-                      onClick={() =>
-                        toggleFilter({
-                          key: col.key,
-                          label: col.label,
-                        })
-                      }
-                      className={`rounded-md border px-3 py-2 text-left text-xs ${
-                        active
-                          ? "border-sky-300 bg-sky-50 text-sky-700"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      {col.label}
-                    </button>
-                  );
-                })}
+              <div
+                onDragOver={(event) => {
+                  if (draggedField) {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "copy";
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  handleFilterDrop();
+                }}
+                className={`min-h-[132px] rounded-md border border-dashed p-2 transition ${
+                  draggedField
+                    ? "border-sky-300 bg-sky-50"
+                    : "border-slate-200 bg-slate-50/60"
+                }`}
+              >
+                {form.layout.columns.length === 0 ? (
+                  <div className="flex h-24 items-center justify-center rounded-md bg-white px-3 text-center text-xs text-slate-500">
+                    Drag available fields here or click fields to add columns first.
+                  </div>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {form.layout.columns.map((col) => {
+                      const active = form.layout.filters.some((f) => f.key === col.key);
+                      return (
+                        <div
+                          key={col.key}
+                          draggable
+                          onDragStart={(event) => {
+                            setDraggedFilterKey(col.key);
+                            event.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDragOver={(event) => {
+                            if (draggedFilterKey || draggedField) {
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = draggedField ? "copy" : "move";
+                            }
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            if (draggedFilterKey) {
+                              moveColumnByKey(draggedFilterKey, col.key);
+                            } else {
+                              handleFilterDrop();
+                            }
+                          }}
+                          onDragEnd={() => setDraggedFilterKey("")}
+                          className={`flex min-w-0 items-center gap-2 rounded-md border px-3 py-2 text-left text-xs ${
+                            active
+                              ? "cursor-grab border-sky-300 bg-sky-50 text-sky-700 active:cursor-grabbing"
+                              : "border-slate-200 bg-white text-slate-700"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleFilter(col)}
+                            className="min-w-0 flex-1 text-left"
+                          >
+                            <span className="block truncate font-semibold">
+                              {col.label}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[10px] text-slate-400">
+                              {active ? "Enabled" : "Click to enable"}
+                            </span>
+                          </button>
+
+                          {active && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                removeColumn(col.key);
+                              }}
+                              className="shrink-0 rounded-md border border-red-300 bg-white px-2 py-1 text-[10px] font-semibold text-red-600 hover:bg-red-50"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
